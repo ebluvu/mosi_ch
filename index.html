@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>môsi</title>
+
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+        
+        <link href="style/styles.css" rel="stylesheet">
+
+        <!-- ICON -->
+        <link rel="icon" href="images/icon.png" type="image/x-icon">
+
+        <!-- FONTS -->
+        <script src="script/fonts/BoutiqueBitmap7x7_1.7.js"></script>
+        <!-- <script src="script/fonts/cubic_11.js"></script> -->
+
+        <!-- LIBRARIES -->
+        <script src="library/preact.min.js"></script>
+        <script src="library/chroma.min.js"></script>
+        <script src="library/gif.js"></script>
+        <script src="library/files.js"></script>
+
+        <!-- HELPERS -->
+        <script src="script/icons.js"></script>
+        <script src="script/helpers.js"></script>
+        <script src="script/game-template.js"></script>
+
+        <!-- ENTITIES -->
+        <script src="script/entities/game.js"></script>
+        <script src="script/entities/world.js"></script>
+        <script src="script/entities/room.js"></script>
+        <script src="script/entities/sprite.js"></script>
+        <script src="script/entities/script.js"></script>
+        <script src="script/entities/palette.js"></script>
+        <script src="script/entities/font.js"></script>
+        <script src="script/entities/text.js"></script>
+        <script src="script/entities/music.js"></script>
+        <script src="script/entities/mod.js"></script>
+        <script src="script/entities/graphic.js"></script>
+
+        <!-- PANELS -->
+        <script src="script/panels/overlays.js"></script>
+        <script src="script/panels/play-panel.js"></script>
+        <script src="script/panels/welcome-panel.js"></script>
+        <script src="script/panels/world-grid.js"></script>
+        <script src="script/panels/world-panel.js"></script>
+        <script src="script/panels/room-panel.js"></script>
+        <script src="script/panels/room-grid.js"></script>
+        <script src="script/panels/room-slice.js"></script>
+        <script src="script/panels/sprite-list-panel.js"></script>
+        <script src="script/panels/sprite-panel.js"></script>
+        <script src="script/panels/sprite-canvas.js"></script>
+        <script src="script/panels/sprite-grid.js"></script>
+        <script src="script/panels/graphic-list-panel.js"></script>
+        <script src="script/panels/graphic-panel.js"></script>
+        <script src="script/panels/graphic-canvas.js"></script>
+        <script src="script/panels/graphic-grid.js"></script>
+        <script src="script/panels/script-panel.js"></script>
+        <script src="script/panels/palette-list-panel.js"></script>
+        <script src="script/panels/palette-panel.js"></script>
+        <script src="script/panels/music-list-panel.js"></script>
+        <script src="script/panels/music-panel.js"></script>
+        <script src="script/panels/inventory-panel.js"></script>
+
+        <!-- MAIN SCRIPT -->
+        <script src="script/main.js"></script>
+
+        <!-- ANDROID VIEWPORT HEIGHT ADJUSTMENT WHEN THE KEYBOARD IS ACTIVE -->
+        <script type="text/javascript">
+            var isAndroid = navigator.userAgent.toLowerCase().indexOf("android") > -1;
+            if(isAndroid) {
+                document.write('<meta name="viewport" content="width=device-width,height='+window.innerHeight+', initial-scale=1.0">');
+            }
+        </script> 
+    </head>
+
+    <body>
+    </body>
+</html>

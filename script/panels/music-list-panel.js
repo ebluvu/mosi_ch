@@ -1,0 +1,81 @@
+class MusicListPanel extends Component {
+    render ({ closeTab }) {
+        return panel({ header: 'music', id: 'musicListPanel', closeTab }, [
+            h(MusicList, this.props)
+        ])
+    }
+}
+
+class MusicList extends Component {
+    render ({
+        selectMusic,
+        editMusic,
+        addMusic,
+        importMusic,
+        currentMusicIndex,
+        musicList = []
+    }, {
+        showImportOverlay
+    }) {
+        let musicButtonList = musicList
+            .map((music, i) => ({ music, i }))
+            .sort((a, b) => {
+                // 按名稱排序
+                let nameA = a.music.name.toUpperCase()
+                let nameB = b.music.name.toUpperCase()
+                if (nameA < nameB) return -1
+                if (nameA > nameB) return 1
+                return 0
+            })
+            .map(({ music, i }) => {
+                return musicButton({
+                    className: (i === currentMusicIndex ? 'initial-focus' : ''),
+                    onclick: () => {
+                        if (currentMusicIndex === i) {
+                            editMusic(i, 'music')
+                        } else {
+                            selectMusic(i, 'music')
+                        }
+                    },
+                    isSelected: (i === currentMusicIndex),
+                    music
+                })
+            })
+
+        let addMusicButton = !addMusic ? null :
+            iconButton({
+                title: 'add music',
+                onclick: addMusic
+            }, 'add')
+
+        let importMusicButton = !importMusic ? null :
+            iconButton({
+                title: 'import music',
+                onclick: () => this.setState({ showImportOverlay: true })
+            }, 'import')
+
+        let importOverlay = !showImportOverlay ? null :
+            h(ImportOverlay, {
+                header: '匯入音樂',
+                onImport: data => {
+                    importMusic(data)
+                    this.setState({ showImportOverlay: false })
+                },
+                fileType: '.mosimusic',
+                closeOverlay: () => this.setState({ showImportOverlay: false })
+            })
+
+        return div({ className: 'content' }, [
+            row([
+                importMusicButton,
+                fill(),
+                addMusicButton
+            ]),
+            hr(),
+            div({ className: 'musicList' }, [
+                musicButtonList
+            ]),
+            importOverlay
+        ])
+    }
+}
