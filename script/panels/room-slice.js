@@ -2,15 +2,11 @@ class RoomSlice extends Component {
     constructor() {
         super()
 
-        this.drawFrame = (frame, width, colorList, isTransparent, context) => {
-            frame.forEach((paletteIndex, i) => {
+        this.drawFrame = (frame, width, context) => {
+            frame.forEach((pixel, i) => {
                 let x = Math.floor(i % width)
                 let y = Math.floor(i / width)
-                if (paletteIndex === 0 && isTransparent) return
-                // 修正：所有超出範圍的顏色都使用最後一個顏色，而不是純黑色
-                let safeIndex = Math.min(paletteIndex, colorList.length - 1)
-                context.fillStyle = colorList[safeIndex] || '#000000'
-                context.fillRect(x, y, 1, 1)
+                if (pixel) context.fillRect(x, y, 1, 1)
             })
         }
 
@@ -23,6 +19,10 @@ class RoomSlice extends Component {
             tileList.forEach(tile => {
                 let { spriteName } = tile
                 let sprite = spriteList.find(sprite => sprite.name === spriteName)
+
+                let colorIndex = sprite.colorIndex
+                while (colorIndex > 0 && !colorList[colorIndex]) colorIndex--
+                let color = colorList[colorIndex]
                 let bgColor = colorList[0]
                 
                 if (sprite && !this.spriteFrameList[sprite.name]) {
@@ -37,8 +37,12 @@ class RoomSlice extends Component {
                             context.fillStyle = bgColor
                             context.fillRect(0, 0, sprite.width, sprite.height)
                         }
-                        this.drawFrame(frame, sprite.width, colorList, sprite.isTransparent, context)
-                        return frameCanvas
+                        
+                        context.fillStyle = color
+                        this.drawFrame(frame, sprite.width, context)
+                        
+                        let frameData = frameCanvas
+                        return frameData
                     })
                 }
             })
@@ -78,10 +82,8 @@ class RoomSlice extends Component {
                         let xOffset = sliceVertical ? 0 : x * sprite.width
                         let yOffset = sliceHorizontal ? 0 : y * sprite.height
                         let frameList = this.spriteFrameList[sprite.name]
-                        if (frameList && frameList.length > 0) {
-                            let frameData = frameList[0]
-                            context.drawImage(frameData, xOffset, yOffset)
-                        }
+                        let frameData = frameList[0]
+                        context.drawImage(frameData, xOffset, yOffset)
                     }
                 } else {
                     console.error('sprite "' + spriteName + '" not found')

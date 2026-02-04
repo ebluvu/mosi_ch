@@ -78,12 +78,6 @@ let Room = {
             if (room.spriteList) {
                 spriteList = spriteList.slice()
                 room.spriteList.forEach(sprite => {
-                    if (typeof sprite.colorIndex === 'number' && sprite.frameList && Array.isArray(sprite.frameList)) {
-                        sprite.frameList = sprite.frameList.map(frame =>
-                            frame.map(v => v === 1 ? sprite.colorIndex : v)
-                        )
-                        delete sprite.colorIndex
-                    }
                     let spriteAlreadyExists = spriteList.find(s => s.name === sprite.name)
                     if (!spriteAlreadyExists) {
                         spriteList.push(sprite)
@@ -137,30 +131,11 @@ let Room = {
                 spriteNames.push(tile.spriteName)
             }
         })
-        room.spriteList = spriteNames.map(spriteName => {
-            let sprite = deepClone(that.state.spriteList.find(sprite => sprite.name === spriteName))
-            if (sprite) {
-                if (sprite.frameList && Array.isArray(sprite.frameList)) {
-                    let allIndices = new Set();
-                    sprite.frameList.forEach(frame => {
-                        frame.forEach(v => allIndices.add(v));
-                    });
-                    allIndices.delete(0);
-                    if (allIndices.size === 1) {
-                        // 單色
-                        let colorIndex = [...allIndices][0];
-                        sprite.colorIndex = colorIndex;
-                        sprite.frameList = sprite.frameList.map(frame =>
-                            frame.map(v => v === colorIndex ? 1 : 0)
-                        );
-                    } else {
-                        // 多色
-                        delete sprite.colorIndex;
-                    }
-                }
-            }
-            return sprite
-        })
+        room.spriteList = spriteNames.map(spriteName =>
+            that.state.spriteList.find(sprite =>
+                sprite.name === spriteName
+            )
+        )
 
         let roomData = JSON.stringify(room)
         return roomData
@@ -326,33 +301,10 @@ let Room = {
 
         frames.forEach((frame, i) => {
             room.tileList.forEach(tile => {
-                // 深拷貝 sprite，避免污染原資料
-                let sprite = deepClone(spriteList.find(s => s.name === tile.spriteName))
+                let sprite = spriteList.find(s => s.name === tile.spriteName)
                 let frameIndex = i % sprite.frameList.length
-
-                // --- 單色判斷與 frameList 轉換（與匯出一致）---
-                if (sprite.frameList && Array.isArray(sprite.frameList)) {
-                    let allIndices = new Set();
-                    sprite.frameList.forEach(frame0 => {
-                        frame0.forEach(v => allIndices.add(v));
-                    });
-                    allIndices.delete(0);
-                    if (allIndices.size === 1) {
-                        // 單色
-                        let colorIndex = [...allIndices][0];
-                        sprite.colorIndex = colorIndex;
-                        sprite.frameList = sprite.frameList.map(frame0 =>
-                            frame0.map(v => v === colorIndex ? 1 : 0)
-                        );
-                    } else {
-                        // 多色
-                        delete sprite.colorIndex;
-                    }
-                }
-
                 let spriteFrame = sprite.frameList[frameIndex]
-                // 判斷是否多色
-                let isMulticolor = spriteFrame.some(p => p > 1)
+
                 let xOffset = tile.x * spriteWidth * scale
                 let yOffset = tile.y * spriteHeight * scale
 
@@ -366,11 +318,7 @@ let Room = {
                     for (let x = 0; x < scale; x++) {
                         for (let y = 0; y < scale; y++) {
                             let pixelIndex = x + pxOffset + ((y + pyOffset) * width)
-                            if (isMulticolor) {
-                                frame[pixelIndex] = pixel // 多色：直接 palette index
-                            } else {
-                                frame[pixelIndex] = colorIndex // 單色：主色
-                            }
+                            frame[pixelIndex] = colorIndex
                         }
                     }
                 })

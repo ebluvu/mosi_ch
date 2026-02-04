@@ -204,17 +204,9 @@ canvas {
     right: 8px;
 }
 
+.room-grid:not(:focus) .grid-highlight,
 .sprite-grid:not(:focus) .grid-highlight {
     display: none;
-}
-
-.graphic-grid:focus {
-    outline-color: transparent;
-    outline-style: none;
-}
-
-.graphic-grid:focus .grid-highlight {
-    display: block !important;
 }
 
 .row {
@@ -535,19 +527,14 @@ a:focus {
     width: 1px;
 }
 
-.multi-tab-mode .drag-panel {
+.multi-tab-mode .panel {
     margin-right: var(--big-padding);
-    flex-basis: 403px;
+    flex-basis: 400px;
     flex-shrink: 0;
 }
 
-.multi-tab-mode .drag-panel:first-child {
+.multi-tab-mode .panel:first-child {
     margin-left: var(--big-padding);
-}
-
-.multi-tab-mode .drag-panel.drag-over .panel {
-    outline: 3px solid hotpink;
-    border-radius: var(--big-radius);
 }
 
 .multi-tab-mode .panel-header {
@@ -581,10 +568,11 @@ span.label {
     cursor: pointer;
 }
 
-.room-grid {
-    margin: 0
+.grid:focus {
+    /* box-shadow: 0 0 0 2px var(--focus-color); */
 }
-.graphic-grid {
+
+.room-grid {
     margin: 0
 }
 .room-block {
@@ -966,12 +954,6 @@ svg.logo {
     overflow-y: auto;
 }
 
-@media (max-width: 600px), (max-device-width: 600px) {
-    .inventory-content {
-        max-height: 200px;
-    }
-}
-
 .dialog-content {
     max-height: 500px;
     overflow-y: auto;
@@ -979,7 +961,7 @@ svg.logo {
 
 /* Custom Scrollbar for Sprite List Panel */
 ::-webkit-scrollbar {
-    width: 3px;
+    width: 0.7px;
     height: 30px;
 }
 
@@ -988,13 +970,12 @@ svg.logo {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #666666;
-    border: 8px solid #666666;
+    background: transparent;
     border-radius: 20px;
 }
 
 :hover::-webkit-scrollbar-thumb {
-    background: #88888888;
+    background: #88888888; /* semi-transparent grey */
     border: 8px solid #666666;
 }
 

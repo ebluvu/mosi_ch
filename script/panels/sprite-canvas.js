@@ -5,28 +5,23 @@ class SpriteCanvas extends Component {
         this.frameIndex = 0
         this.frameDataList = []
 
-        this.drawFrame = (frame, width, colorList, isTransparent, context) => {
-            colorList = Array.isArray(colorList) ? colorList : ['#000000']
-            frame.forEach((paletteIndex, i) => {
+        this.drawFrame = (frame, width, context) => {
+            frame.forEach((pixel, i) => {
                 let x = Math.floor(i % width)
                 let y = Math.floor(i / width)
-                if (paletteIndex === 0 && isTransparent) return
-                // 修正：所有超出範圍的顏色都使用最後一個顏色，而不是純黑色
-                let safeIndex = Math.min(paletteIndex, colorList.length - 1)
-                context.fillStyle = colorList[safeIndex] || '#000000'
-                context.fillRect(x, y, 1, 1)
+                if (pixel) context.fillRect(x, y, 1, 1)
             })
         }
 
         this.cacheFrames = () => {
-            let { width, height, frameList, colorList, isTransparent } = this.props
-            colorList = Array.isArray(colorList) ? colorList : ['#000000']
+            let { width, height, frameList, color } = this.props
             this.frameDataList = frameList.map(frame => {
                 let frameCanvas = document.createElement('canvas')
                 frameCanvas.width = width
                 frameCanvas.height = height
                 let context = frameCanvas.getContext('2d')
-                this.drawFrame(frame, width, colorList, isTransparent, context)
+                context.fillStyle = color || '#000000'
+                this.drawFrame(frame, width, context)
                 let frameData = context.getImageData(0, 0, width, height)
                 return frameData
             })
