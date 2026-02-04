@@ -2,7 +2,7 @@
 // Bitsy GIF exporter code: https://github.com/le-doux/bitsy/blob/master/editor/shared/script/gif.js
 
 class GIF {
-    static encode(width, height, frames, frameRate, colors, callback, transparent) {
+    static encode(width, height, frames, frameRate, colors, callback) {
         let array = []
 
         // find color table size that fits palette
@@ -27,11 +27,11 @@ class GIF {
 
         // image data
         if (frames.length === 1) {
-            let imageData = this.encodeSingleFrame(width, height, colors, frames[0], transparent)
+            let imageData = this.encodeSingleFrame(width, height, colors, frames[0])
             array = array.concat(imageData)
 
         } else {
-            let imageData = this.encodeAnimation(width, height, colors, frames, frameRate, transparent)
+            let imageData = this.encodeAnimation(width, height, colors, frames, frameRate)
             array = array.concat(imageData)
         }
 
@@ -108,7 +108,7 @@ class GIF {
         return array
     }
 
-    static encodeSingleFrame(width, height, colors, data, transparent) {
+    static encodeSingleFrame(width, height, colors, data) {
         let array = []
 
         let imageDescriptor = this.imageDescriptor(width, height)
@@ -117,26 +117,10 @@ class GIF {
 	    let imageData = this.imageData(data, colors)
         array = array.concat(imageData)
 
-        // graphic control extension
-        array.push(0x21)
-        array.push(0xf9)
-        array.push(4)
-        let disposalMethod = transparent ? 2 : 1
-        let packedByte = 
-            (0 << 5) | // unused
-            (disposalMethod << 2) | // disposal method
-            (0 << 1) | // user input flag
-            ((transparent ? 1 : 0) << 0)   // transparency flag
-        array.push(packedByte)
-        array.push(0) // delay time low
-        array.push(0) // delay time high
-        array.push(0) // transparency color index (always 0)
-        array.push(0) // block end
-
         return array
     }
 
-    static encodeAnimation(width, height, colors, frames, frameRate, transparent) {
+    static encodeAnimation(width, height, colors, frames, frameRate) {
         let delayTime = Math.floor(frameRate / 10)
         let array = []
 
@@ -158,16 +142,15 @@ class GIF {
             array.push(0xf9) // graphic control extension id
             array.push(4) // how many bytes follow
 
-            let disposalMethod = transparent ? 2 : 1
             let packedByte = 
                 (0 << 5) | // unused
-                (disposalMethod << 2) | // disposal method
+                (1 << 2) | // disposal method (1 = keep, 2 = clear)
                 (0 << 1) | // user input flag
-                ((transparent ? 1 : 0) << 0)   // transparency flag
+                (0 << 0)   // transparency flag
             array.push(packedByte)
 
             array = this.pushU16(array, delayTime)
-            array.push(0) // transparency color index (always 0)
+            array.push(0) // transparency color
             array.push(0) // block end
 
             // current frame data

@@ -94,13 +94,6 @@ class GraphicPanel extends Component {
 
         // music 按鈕
         let currentMusicIndex = musicList.findIndex(m => m.name === musicName);
-        // 如果找不到對應的音樂，自動切換到第一個音樂
-        if (currentMusicIndex === -1 && musicList.length > 0) {
-            currentMusicIndex = 0;
-            // 更新當前幀的音樂名稱
-            let newFrame = { ...currentFrame, musicName: musicList[0].name };
-            updateFrame(currentFrameIndex, newFrame);
-        }
         let currentMusic = musicList[currentMusicIndex] || musicList[0];
         let musicBtn = type === 'picture' ? musicButton({
             className: 'simple',
@@ -134,13 +127,6 @@ class GraphicPanel extends Component {
 
         // palette 按鈕
         let currentPaletteIndex = paletteList.findIndex(p => p.name === paletteName);
-        // 如果找不到對應的調色盤，自動切換到第一個調色盤
-        if (currentPaletteIndex === -1 && paletteList.length > 0) {
-            currentPaletteIndex = 0;
-            // 更新當前幀的調色盤名稱
-            let newFrame = { ...currentFrame, paletteName: paletteList[0].name };
-            updateFrame(currentFrameIndex, newFrame);
-        }
         let currentPalette = paletteList[currentPaletteIndex] || paletteList[0];
         let paletteBtn = type === 'picture' ? paletteButton({
             className: 'simple',

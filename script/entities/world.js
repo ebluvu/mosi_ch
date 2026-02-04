@@ -46,13 +46,7 @@ let World = {
 
             // 新增 graphic 系統
             currentGraphicIndex: 0,
-            graphicList: [],
-
-            // 對話框皮膚（統一為 list）
-            textboxSkinList: [],
-            
-            // 對話框最大行數設定
-            dialogMaxLines: 2,
+            graphicList: []
         }
 
         // create avatar
@@ -173,8 +167,6 @@ let World = {
             spriteHeight: 8,
             randomStart: true
         })
-        // === PATCH: 清空 textboxSkin ===
-        newWorld.textboxSkin = null;
         that.setState(newWorld)
         newWorld.variables = upgradeVariables(newWorld.variables)
     },
@@ -340,11 +332,8 @@ let World = {
 
             // 初始化主體顏色設定
             if (typeof world.mainPaletteIndex === 'undefined') world.mainPaletteIndex = 0
-            if (typeof world.mainBgColorIndex === 'undefined') world.mainBgColorIndex = 1
-            if (typeof world.mainTextColorIndex === 'undefined') world.mainTextColorIndex = 0
-
-            // 初始化對話框最大行數設定
-            if (typeof world.dialogMaxLines === 'undefined') world.dialogMaxLines = 2
+            if (typeof world.mainBgColorIndex === 'undefined') world.mainBgColorIndex = 0
+            if (typeof world.mainTextColorIndex === 'undefined') world.mainTextColorIndex = 1
 
             // 過濾舊版數據結構
             delete world.themeTextColor
@@ -367,21 +356,6 @@ let World = {
             // init graphics
             if (!world.graphicList) world.graphicList = []
             if (typeof world.currentGraphicIndex === 'undefined') world.currentGraphicIndex = 0
-
-            // 匯入相容：將舊的 textboxSkin 升級為 list
-            // 只保留單一 textboxSkin
-            if (!world.textboxSkin && world.textboxSkinList && Array.isArray(world.textboxSkinList) && world.textboxSkinList.length > 0) {
-                world.textboxSkin = world.textboxSkinList[0];
-            }
-            delete world.textboxSkinList;
-
-            // === PATCH: 若新世界沒有 textboxSkin，主動設為 null ===
-            if (!('textboxSkin' in world)) {
-                world.textboxSkin = null;
-            }
-
-            // 在 import 時，若 textboxSkin 沒有 isTransparent，預設補 true
-            if (world.textboxSkin && typeof world.textboxSkin.isTransparent !== 'boolean') world.textboxSkin.isTransparent = true;
 
             that.updateWorld(world)
             return world
@@ -442,8 +416,6 @@ let World = {
                 }
             })
         }
-        // 匯出時只保留新版 list 結構
-        if (world.textboxSkinList) delete world.textboxSkinList;
         // remove editor state
         delete world.currentTab
         delete world.tabVisibility
@@ -528,34 +500,6 @@ let World = {
     exportGraphic: (that, graphicIndex) => {
         // 改為呼叫 Graphic.export
         return Graphic.export(that, graphicIndex)
-    },
-
-    // ========== TextboxSkin CRUD ========== //
-    addTextboxSkin: (that, skin) => {
-        let world = { ...that.state.world };
-        if (!Array.isArray(world.textboxSkinList)) world.textboxSkinList = [];
-        world.textboxSkinList.push(skin);
-        that.setState({ world });
-    },
-    removeTextboxSkin: (that, skinIndex) => {
-        let world = { ...that.state.world };
-        if (!Array.isArray(world.textboxSkinList)) return;
-        world.textboxSkinList.splice(skinIndex, 1);
-        that.setState({ world });
-    },
-    renameTextboxSkin: (that, skinIndex, newName) => {
-        let world = { ...that.state.world };
-        if (!Array.isArray(world.textboxSkinList)) return;
-        if (world.textboxSkinList[skinIndex]) world.textboxSkinList[skinIndex].name = newName;
-        that.setState({ world });
-    },
-    importTextboxSkin: (that, skinData) => {
-        let skin = typeof skinData === 'string' ? JSON.parse(skinData) : skinData;
-        World.addTextboxSkin(that, skin);
-    },
-    exportTextboxSkin: (that, skinIndex) => {
-        let skin = that.state.world.textboxSkinList[skinIndex];
-        return JSON.stringify(skin);
     }
 
 }

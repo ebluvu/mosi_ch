@@ -79,11 +79,11 @@ class SpriteListPanel extends Component {
 
         let filterButtons = div({ className: 'row', style: { 'justify-content': 'center', 'margin-top': '8px', 'align-items': 'center' }  }, [
             iconButton({ title: '全部', className: category === 'all' ? 'selected' : '', onclick: () => setCategory('all') }, 'world'),
-            iconButton({ title: '房間', className: category === 'room' ? 'selected' : '', onclick: () => setCategory('room') }, 'room'),
+            iconButton({ title: '主角', className: category === 'avatar' ? 'selected' : '', onclick: () => setCategory('avatar') }, 'sprite'),
             iconButton({ title: '精靈', className: category === 'sprite' ? 'selected' : '', onclick: () => setCategory('sprite') }, 'sprites'),
-            iconButton({ title: '對話', className: category === 'dialog' ? 'selected' : '', onclick: () => setCategory('dialog') }, 'script'),
             iconButton({ title: '道具', className: category === 'item' ? 'selected' : '', onclick: () => setCategory('item') }, 'item'),
             iconButton({ title: '牆', className: category === 'wall' ? 'selected' : '', onclick: () => setCategory('wall') }, 'wall'),
+            iconButton({ title: '房間', className: category === 'room' ? 'selected' : '', onclick: () => setCategory('room') }, 'room'),
             iconButton({ title: '自訂', className: category === 'custom' ? 'selected' : '', onclick: () => setCategory('custom') }, 'extras'),
             div({ style: { flex: 1 } }),
             iconButton({ title: '編輯', onclick: () => this.setState({ showEditSpritesOverlay: true }) }, 'edit')
@@ -102,20 +102,19 @@ class SpriteListPanel extends Component {
                     case 'all':
                         if (hideAvatar && sprite.isAvatar) return false
                         return true
-                    case 'room': {
-                        if (!currentRoom) return false
-                        const roomSpriteNames = [...new Set(currentRoom.tileList.map(t => t.spriteName))]
-                        return roomSpriteNames.includes(sprite.name)
-                    }
-                    case 'dialog':
-                        if (!sprite.scriptList) return false
-                        return (sprite.scriptList['on-push'] && sprite.scriptList['on-push'].trim()) || (sprite.scriptList['on-message'] && sprite.scriptList['on-message'].trim())
+                    case 'avatar':
+                        return sprite.isAvatar
                     case 'sprite':
                         return !sprite.isAvatar && !sprite.isItem && !sprite.isWall
                     case 'item':
                         return sprite.isItem
                     case 'wall':
                         return sprite.isWall
+                    case 'room': {
+                        if (!currentRoom) return false
+                        const roomSpriteNames = [...new Set(currentRoom.tileList.map(t => t.spriteName))]
+                        return roomSpriteNames.includes(sprite.name)
+                    }
                     case 'custom': {
                         return selectedCustomGroupSpriteNames.includes(sprite.name)
                     }
@@ -125,10 +124,8 @@ class SpriteListPanel extends Component {
             })
             // sort alphabetically, avatar is always first
             .sort((s1, s2) => {
-                // 主角始終在第一位
-                if (s1.sprite.isAvatar && !s2.sprite.isAvatar) return -1
-                if (!s1.sprite.isAvatar && s2.sprite.isAvatar) return 1
-                // 其他精靈按名稱排序
+                if (s1.sprite.isAvatar) return -1
+                if (s2.sprite.isAvatar) return 1
                 let name1 = s1.sprite.name.toUpperCase()
                 let name2 = s2.sprite.name.toUpperCase()
                 if (name1 < name2) return -1
@@ -257,18 +254,6 @@ class SpriteList extends Component {
                     return false
                 }
                 return true
-            })
-            // 按名稱排序，主角始終在第一位
-            .sort((s1, s2) => {
-                // 主角始終在第一位
-                if (s1.isAvatar && !s2.isAvatar) return -1
-                if (!s1.isAvatar && s2.isAvatar) return 1
-                // 其他精靈按名稱排序
-                let name1 = s1.name.toUpperCase()
-                let name2 = s2.name.toUpperCase()
-                if (name1 < name2) return -1
-                if (name1 > name2) return 1
-                else return 0
             })
             .map((sprite, i) =>
                 spriteButton({

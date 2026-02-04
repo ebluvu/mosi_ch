@@ -17,30 +17,20 @@ class MusicList extends Component {
     }, {
         showImportOverlay
     }) {
-        let musicButtonList = musicList
-            .map((music, i) => ({ music, i }))
-            .sort((a, b) => {
-                // 按名稱排序
-                let nameA = a.music.name.toUpperCase()
-                let nameB = b.music.name.toUpperCase()
-                if (nameA < nameB) return -1
-                if (nameA > nameB) return 1
-                return 0
+        let musicButtonList = musicList.map((music, i) => {
+            return musicButton({
+                className: (i === currentMusicIndex ? 'initial-focus' : ''),
+                onclick: () => {
+                    if (currentMusicIndex === i) {
+                        editMusic(i, 'music')
+                    } else {
+                        selectMusic(i, 'music')
+                    }
+                },
+                isSelected: (i === currentMusicIndex),
+                music
             })
-            .map(({ music, i }) => {
-                return musicButton({
-                    className: (i === currentMusicIndex ? 'initial-focus' : ''),
-                    onclick: () => {
-                        if (currentMusicIndex === i) {
-                            editMusic(i, 'music')
-                        } else {
-                            selectMusic(i, 'music')
-                        }
-                    },
-                    isSelected: (i === currentMusicIndex),
-                    music
-                })
-            })
+        })
 
         let addMusicButton = !addMusic ? null :
             iconButton({
