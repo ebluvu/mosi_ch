@@ -15,7 +15,6 @@ class RoomGrid extends Component {
         this.isDrawing = true
 
         this.pointerStart = (e) => {
-            if (this.props.showDialogSpriteOverlay) return
             e.preventDefault()
             this.pointerIsDown = true
             let startOfDraw = true
@@ -34,7 +33,6 @@ class RoomGrid extends Component {
             if (this.pointerIsDown) {
                 e.preventDefault()
                 this.pointerIsDown = false
-                this.pointerDraw(e)
             }
         }
 
@@ -104,13 +102,7 @@ class RoomGrid extends Component {
         }
 
         this.pointerDraw = (e, startOfDraw) => {
-            let pointer;
-            if (e.type === 'touchend' || e.type === 'touchcancel') {
-                pointer = e.changedTouches[0];
-            } else {
-                pointer = e.touches ? e.touches[0] : e;
-            }
-            if (!pointer) return; // Add a guard in case pointer is undefined
+            let pointer = e.touches ? e.touches[0] : e
             let { roomWidth, roomHeight } = this.props
             let rect = this.node.getBoundingClientRect()
             let tileWidth = rect.width / roomWidth
@@ -168,13 +160,11 @@ class RoomGrid extends Component {
             })
         }
 
-        this.drawFrame = (frame, width, colorList, isTransparent, context) => {
-            frame.forEach((paletteIndex, i) => {
+        this.drawFrame = (frame, width, context) => {
+            frame.forEach((pixel, i) => {
                 let x = Math.floor(i % width)
                 let y = Math.floor(i / width)
-                if (paletteIndex === 0 && isTransparent) return
-                context.fillStyle = colorList[Math.min(paletteIndex, colorList.length - 1)] || '#000000'
-                context.fillRect(x, y, 1, 1)
+                if (pixel) context.fillRect(x, y, 1, 1)
             })
         }
 
@@ -186,6 +176,10 @@ class RoomGrid extends Component {
             tileList.forEach(tile => {
                 let { spriteName } = tile
                 let sprite = spriteList.find(sprite => sprite.name === spriteName)
+
+                let colorIndex = sprite.colorIndex
+                while (colorIndex > 0 && !colorList[colorIndex]) colorIndex--
+                let color = colorList[colorIndex]
                 let bgColor = colorList[0]
                 
                 if (sprite && !this.spriteFrameList[sprite.name]) {
@@ -200,8 +194,12 @@ class RoomGrid extends Component {
                             context.fillStyle = bgColor
                             context.fillRect(0, 0, sprite.width, sprite.height)
                         }
-                        this.drawFrame(frame, sprite.width, colorList, sprite.isTransparent, context)
-                        return frameCanvas
+                        
+                        context.fillStyle = color
+                        this.drawFrame(frame, sprite.width, context)
+                        
+                        let frameData = frameCanvas
+                        return frameData
                     })
                 }
             })
@@ -309,7 +307,7 @@ class RoomGrid extends Component {
         if (!this.props.isAnimated) this.update()
     }
 
-    render({ className, spriteWidth, spriteHeight, roomWidth, roomHeight, colorList, showGrid, showDialogSpriteOverlay, dialogSpriteFilter, spriteList, tileList, isAnimated, ...restProps }, { usingKeyboard, lastTileX, lastTileY, hoverX, hoverY }) {
+    render({ className, spriteWidth, spriteHeight, roomWidth, roomHeight, colorList, showGrid }, { usingKeyboard, lastTileX, lastTileY, hoverX, hoverY }) {
         let tileWidth = 100 / (roomWidth + 2)
         let tileHeight = tileWidth * (spriteWidth / spriteHeight)
         
@@ -361,69 +359,12 @@ class RoomGrid extends Component {
         }
         let gridLines = showGrid ? div({ className: 'gridlines' }, h('table', {}, gridLinesRows)) : null
 
-        // 覆蓋層
-        let dialogOverlay = null
-        if (showDialogSpriteOverlay) {
-            // 每格找 tileList 上所有精靈，從最上層往下找第一個有 on-push 的精靈
-            let overlayCells = []
-            for (let y = 0; y < roomHeight; y++) {
-                let rowCells = []
-                for (let x = 0; x < roomWidth; x++) {
-                    // 找出這格所有精靈（tileList 順序，最後一個是最上層）
-                    let tilesAtPos = tileList.filter(tile => tile.x === x && tile.y === y)
-                    let dialogSpriteIndex = -1
-                    let hasDialog = false
-                    // 從最上層往下找第一個有 on-push 的精靈
-                    for (let i = tilesAtPos.length - 1; i >= 0; i--) {
-                        let spriteIndex = spriteList.findIndex(s => s && s.name === tilesAtPos[i].spriteName)
-                        let sprite = spriteList[spriteIndex]
-                        if (sprite && dialogSpriteFilter && dialogSpriteFilter(sprite)) {
-                            dialogSpriteIndex = spriteIndex
-                            hasDialog = true
-                            break
-                        }
-                    }
-                    rowCells.push(
-                        div({
-                            className: 'dialog-sprite-overlay-cell',
-                            style: {
-                                position: 'absolute',
-                                left: (x * 100 / roomWidth) + '%',
-                                top: (y * 100 / roomHeight) + '%',
-                                width: (100 / roomWidth) + '%',
-                                height: (100 / roomHeight) + '%',
-                                background: hasDialog ? 'none' : 'rgba(238,238,238,0.66)',
-                                cursor: hasDialog ? 'pointer' : 'default',
-                                zIndex: 10
-                            },
-                            onclick: hasDialog && typeof restProps.onDialogSpriteSelect === 'function' ? (evt) => { evt.preventDefault(); restProps.onDialogSpriteSelect(dialogSpriteIndex); } : undefined,
-                            ontouchend: hasDialog && typeof restProps.onDialogSpriteSelect === 'function' ? (evt) => { evt.preventDefault(); restProps.onDialogSpriteSelect(dialogSpriteIndex); } : undefined
-                        })
-                    )
-                }
-                overlayCells.push(rowCells)
-            }
-            dialogOverlay = div({
-                className: 'dialog-sprite-overlay',
-                style: {
-                    position: 'absolute',
-                    left: 0,
-                    top: 0,
-                    width: '100%',
-                    height: '100%',
-                    pointerEvents: 'auto',
-                    zIndex: 1
-                }
-            }, overlayCells.flat())
-        }
-
         return div({
             className: 'grid room-grid ' + className,
             style: {
                 width: canvasWidth + '%',
                 paddingTop: canvasHeight + '%',
-                backgroundColor: colorList[0],
-                position: 'relative'
+                backgroundColor: colorList[0]
             },
             ref: node => { this.node = node },
             tabindex: 0
@@ -435,8 +376,7 @@ class RoomGrid extends Component {
             }),
             gridLines,
             gridHighlight,
-            hoverHighlight,
-            dialogOverlay
+            hoverHighlight
         ])
     }
 }
