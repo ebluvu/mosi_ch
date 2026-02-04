@@ -628,17 +628,11 @@ return class {
             return tileIsClear
         }
 
-        this.startDialog = (dialogNodes, append = false) => {
-            if (append && this.dialogNodes && this.dialogNodes.length > 0) {
-                // 追加模式：將新對話框追加到現有對話框序列
-                this.dialogNodes = this.dialogNodes.concat(dialogNodes)
-            } else {
-                // 覆蓋模式：替換現有對話框
-                this.dialogNodes = dialogNodes
-                this.pageStartTimestamp = null
-                this.pageIsComplete = false
-                window.textPosition = null
-            }
+        this.startDialog = (dialogNodes) => {
+            this.dialogNodes = dialogNodes
+            this.pageStartTimestamp = null
+            this.pageIsComplete = false
+            window.textPosition = null
             if (this.onDialogChange) this.onDialogChange(this.dialogNodes)
         }
 
@@ -848,17 +842,7 @@ return class {
             }
 
             let world = this.world;
-            // 優先使用當前房間的動態調色盤，否則使用主調色盤
-            let palette = null;
-            if (world && world.paletteList) {
-                let currentRoom = this.currentRoom || world.roomList[this.currentRoomIndex];
-                if (currentRoom && currentRoom.paletteName) {
-                    palette = world.paletteList.find(p => p.name === currentRoom.paletteName);
-                }
-                if (!palette && typeof world.mainPaletteIndex === 'number') {
-                    palette = world.paletteList[world.mainPaletteIndex];
-                }
-            }
+            let palette = world && world.paletteList ? world.paletteList[world.mainPaletteIndex] : null;
             let nextPageNodeIndex = Text.drawNode({
                 nodes: this.dialogNodes,
                 canvas,
@@ -979,26 +963,16 @@ return class {
             
             // ignore if player is already in this room
             if (this.currentRoomIndex === roomIndex) return
-            
-            // 保存舊房間索引和房間物件，用於執行 on-exit
-            let oldRoomIndex = this.currentRoomIndex
-            let oldRoom = this.currentRoom
-            let oldRoomScript = oldRoom && oldRoom.scriptList && oldRoom.scriptList['on-exit']
-            
-            // 先切換房間（房間外觀改變）
-            if (!startOfGame && oldRoom) {
-                let script = oldRoomScript
+            // on-exit: 先執行 on-exit 腳本，再判斷 set-effect
+            if (!startOfGame && this.currentRoom) {
+                let script = this.currentRoom.scriptList && this.currentRoom.scriptList['on-exit']
                 // 先判斷 move
                 let matchMove = script && script.match(/\{set-effect move\}/)
                 if (matchMove) {
                     this._isFading = true
-                    this.slideTransition(oldRoomIndex, roomIndex, undefined, () => {
+                    this.slideTransition(this.currentRoomIndex, roomIndex, undefined, () => {
                         this._isFading = false
-                        // 房間切換完成後，執行上一個房間的 on-exit，然後執行新房間的 on-enter
-                        this._moveRoomsAfterFade(roomIndex, startOfGame, { 
-                            oldRoomIndex: oldRoomIndex,
-                            oldRoomScript: oldRoomScript
-                        })
+                        this._moveRoomsAfterFade(roomIndex, startOfGame)
                     }, 400)
                     return
                 }
@@ -1009,54 +983,19 @@ return class {
                     let palette = this.world.paletteList[this.currentPaletteIndex]
                     let colorList = palette ? palette.colorList : ['#000']
                     let color = colorList[colorIndex] || '#000'
+                    this.runScript(this.currentRoom.scriptList, 'on-exit')
                     this._isFading = true
                     this.fade(color, 400, 'out').then(() => {
                         this._isFading = false
-                        // 房間切換完成後，執行上一個房間的 on-exit，然後執行新房間的 on-enter
-                        this._moveRoomsAfterFade(roomIndex, startOfGame, { 
-                            fadeIn: { color, duration: 400 },
-                            oldRoomIndex: oldRoomIndex,
-                            oldRoomScript: oldRoomScript
-                        })
+                        this._moveRoomsAfterFade(roomIndex, startOfGame, { fadeIn: { color, duration: 400 } })
                     })
                     return
                 }
+                // 沒有 set-effect，直接執行 on-exit
+                this.runScript(this.currentRoom.scriptList, 'on-exit')
             }
-            // 沒有 set-effect，直接切換房間（即使沒有 oldRoom 也要傳遞 oldRoomIndex）
-            this._moveRoomsAfterFade(roomIndex, startOfGame, { 
-                oldRoomIndex: oldRoomIndex,
-                oldRoomScript: oldRoomScript
-            })
-        }
-
-
-        this._waitForDialogThenMoveRooms = (roomIndex, startOfGame, opts) => {
-            // 先檢查對話框是否已經完成（可能 on-exit 沒有創建對話框，或者對話框立即完成）
-            if (!this.dialogNodes || this.dialogNodes.length === 0) {
-                // 對話框已完成或不存在，直接執行房間切換
-                this._moveRoomsAfterFade(roomIndex, startOfGame, opts)
-                return
-            }
-            
-            // 保存原始的回調函數
-            let originalOnDialogChange = this.onDialogChange
-            let hasMoved = false // 防止重複執行
-            
-            // 設置一個臨時回調，監聽對話框完成
-            this.onDialogChange = (dialogNodes, scriptInfo) => {
-                // 調用原始回調
-                if (originalOnDialogChange) {
-                    originalOnDialogChange(dialogNodes, scriptInfo)
-                }
-                // 如果對話框已完成（dialogNodes 為空或 null），執行房間切換
-                if (!hasMoved && (!dialogNodes || dialogNodes.length === 0)) {
-                    hasMoved = true
-                    // 恢復原始回調
-                    this.onDialogChange = originalOnDialogChange
-                    // 執行房間切換
-                    this._moveRoomsAfterFade(roomIndex, startOfGame, opts)
-                }
-            }
+            // 沒有 set-effect 或 startOfGame
+            this._moveRoomsAfterFade(roomIndex, startOfGame)
         }
 
         this._moveRoomsAfterFade = (roomIndex, startOfGame, opts) => {
@@ -1091,66 +1030,15 @@ return class {
             // cache new sprites
             this.updateCache()
 
-            // 如果有 fadeIn 參數，這裡淡入
-            if (opts && opts.fadeIn && this.fade) {
-                this.fade(opts.fadeIn.color, opts.fadeIn.duration, 'in')
-            }
-
-            // 執行上一個房間的 on-exit（房間已經切換，但執行舊房間的腳本）
-            if (!startOfGame && opts && opts.oldRoomIndex !== undefined && opts.oldRoomIndex !== roomIndex) {
-                let oldRoom = this.world.roomList[opts.oldRoomIndex]
-                // 檢查 oldRoom 是否存在並嘗試執行 on-exit
-                if (oldRoom && oldRoom.scriptList) {
-                    // 記錄執行前的對話框狀態
-                    let dialogNodesBefore = this.dialogNodes ? this.dialogNodes.length : 0
-                    // 執行 on-exit 腳本（傳遞 oldRoomIndex 以便正確顯示房間名稱）
-                    let hadDialog = this.runScript(oldRoom.scriptList, 'on-exit', { roomIndex: opts.oldRoomIndex })
-                    // 檢查對話框是否有變化（即使 runScript 返回 false，也可能創建了新對話）
-                    let dialogNodesAfter = this.dialogNodes ? this.dialogNodes.length : 0
-                    let dialogChanged = dialogNodesAfter !== dialogNodesBefore || (this.lastDialogScriptInfo && this.lastDialogScriptInfo.eventName === 'on-exit')
-                    // 如果有對話框變化，等待完成後再執行 on-enter
-                    if (dialogChanged && dialogNodesAfter > 0) {
-                        this._waitForDialogThenRunOnEnter(roomIndex, startOfGame)
-                        return
-                    }
-                    // 如果沒有對話框，繼續執行 on-enter（不 return）
-                }
-            }
-
             // run enter script for new room
             if (!startOfGame) {
                 this.runScript(this.currentRoom.scriptList, 'on-enter', { roomIndex: this.currentRoomIndex })
+                // 如果有 fadeIn 參數，這裡淡入
+                if (opts && opts.fadeIn && this.fade) {
+                    this.fade(opts.fadeIn.color, opts.fadeIn.duration, 'in')
+                }
             }
             // 不再呼叫主循環，由 moveRooms 呼叫
-        }
-
-        this._waitForDialogThenRunOnEnter = (roomIndex, startOfGame) => {
-            // 先檢查對話框是否已經完成
-            if (!this.dialogNodes || this.dialogNodes.length === 0) {
-                // 對話框已完成或不存在，直接執行 on-enter
-                this.runScript(this.currentRoom.scriptList, 'on-enter', { roomIndex: this.currentRoomIndex })
-                return
-            }
-            
-            // 保存原始的回調函數
-            let originalOnDialogChange = this.onDialogChange
-            let hasRun = false // 防止重複執行
-            
-            // 設置一個臨時回調，監聽對話框完成
-            this.onDialogChange = (dialogNodes, scriptInfo) => {
-                // 調用原始回調
-                if (originalOnDialogChange) {
-                    originalOnDialogChange(dialogNodes, scriptInfo)
-                }
-                // 如果對話框已完成（dialogNodes 為空或 null），執行 on-enter
-                if (!hasRun && (!dialogNodes || dialogNodes.length === 0)) {
-                    hasRun = true
-                    // 恢復原始回調
-                    this.onDialogChange = originalOnDialogChange
-                    // 執行 on-enter
-                    this.runScript(this.currentRoom.scriptList, 'on-enter', { roomIndex: this.currentRoomIndex })
-                }
-            }
         }
 
         this.updateMusic = () => {
@@ -1172,9 +1060,9 @@ return class {
             }
         }
 
-        this.runScript = (scriptList, scriptName, context, appendDialog = false) => {
+        this.runScript = (scriptList, scriptName, context) => {
             // ignore non-existent scripts
-            if (!scriptList || !scriptList[scriptName]) return false
+            if (!scriptList || !scriptList[scriptName]) return
 
             // get script
             let script = scriptList[scriptName]
@@ -1187,20 +1075,8 @@ return class {
                 context: context
             }
 
-            // 記錄執行前的對話框狀態
-            let hadDialogBefore = this.dialogNodes && this.dialogNodes.length > 0
-
-            // 如果使用追加模式，在 context 中標記
-            if (appendDialog && context) {
-                context._appendDialog = true
-            }
-
             // run script
             Script.run(script, this, context)
-
-            // 檢查是否創建了新對話框
-            let hasDialogAfter = this.dialogNodes && this.dialogNodes.length > 0
-            return hasDialogAfter && (!hadDialogBefore || appendDialog)
         }
 
         this.nextFrames = () => {
@@ -1654,111 +1530,33 @@ return class {
                 followerTrail: this.followerTrail,
                 // 房間內 tileList 只存有變動的（如道具被撿走、門被打開等）
                 roomStates: this.world.roomList.map(room => ({
-                    tileList: room.tileList.map(tile => ({...tile})),
-                    paletteName: room.paletteName,
-                    musicName: room.musicName
+                    tileList: room.tileList.map(tile => ({...tile}))
                 })),
-                // 存儲插圖的動態調色盤和音樂
-                graphicStates: this.world.graphicList
-                    .filter(g => g.type === 'picture')
-                    .map(g => ({
-                        name: g.name,
-                        paletteName: g.paletteName,
-                        musicName: g.musicName
-                    })),
-                // 當前插圖狀態
-                currentPicture: this.currentPicture,
-                currentPicturePalette: this.currentPicturePalette,
-                currentPictureMusic: this.currentPictureMusic
             });
         }
 
         this.importState = (json) => {
             try {
                 const data = typeof json === 'string' ? JSON.parse(json) : json;
-                // 先保存目標房間索引和位置（不要立即設定 currentRoomIndex）
-                const targetRoomIndex = data.currentRoomIndex;
-                const targetX = data.avatarX;
-                const targetY = data.avatarY;
-                
-                // 還原其他狀態
+                this.avatarX = data.avatarX;
+                this.avatarY = data.avatarY;
                 this.avatarDirection = data.avatarDirection || 'front';
+                this.currentRoomIndex = data.currentRoomIndex;
                 this.inventory = data.inventory || {};
                 this.variables = data.variables || {};
                 this.followerList = data.followerList || [];
                 this.followerTrail = data.followerTrail || [];
-                
-                // 還原房間 tileList 和動態調色盤/音樂
+                // 還原房間 tileList
                 if (Array.isArray(data.roomStates)) {
                     data.roomStates.forEach((roomState, i) => {
                         if (this.world.roomList[i] && roomState && Array.isArray(roomState.tileList)) {
                             this.world.roomList[i].tileList = roomState.tileList.map(tile => ({...tile}));
-                            // 還原房間的動態調色盤和音樂
-                            if (roomState.paletteName !== undefined) {
-                                this.world.roomList[i].paletteName = roomState.paletteName;
-                            }
-                            if (roomState.musicName !== undefined) {
-                                this.world.roomList[i].musicName = roomState.musicName;
-                            }
                         }
                     });
                 }
-                
-                // 還原插圖的動態調色盤和音樂
-                if (Array.isArray(data.graphicStates)) {
-                    data.graphicStates.forEach(graphicState => {
-                        let graphic = this.world.graphicList.find(g => g.name === graphicState.name && g.type === 'picture');
-                        if (graphic) {
-                            if (graphicState.paletteName !== undefined) {
-                                graphic.paletteName = graphicState.paletteName;
-                            }
-                            if (graphicState.musicName !== undefined) {
-                                graphic.musicName = graphicState.musicName;
-                            }
-                        }
-                    });
-                }
-                
-                // 還原當前插圖狀態
-                if (data.currentPicture !== undefined) {
-                    this.currentPicture = data.currentPicture;
-                }
-                if (data.currentPicturePalette !== undefined) {
-                    this.currentPicturePalette = data.currentPicturePalette;
-                }
-                if (data.currentPictureMusic !== undefined) {
-                    this.currentPictureMusic = data.currentPictureMusic;
-                }
-                
-                // 如果目標房間與當前房間不同，先切換房間（此時 currentRoomIndex 還是舊值）
-                if (targetRoomIndex !== this.currentRoomIndex) {
-                    this.moveRooms(targetRoomIndex, true);
-                }
-                
-                // 設定玩家位置（確保在房間切換後設定）
-                this.avatarX = targetX;
-                this.avatarY = targetY;
-                this.nextX = targetX;
-                this.nextY = targetY;
-                this.nextRoomIndex = targetRoomIndex;
-                
-                // 強制更新緩存和渲染
+                this.moveRooms(this.currentRoomIndex, true);
                 this.updateCache();
-                // 使用 requestAnimationFrame 確保畫面更新
-                if (this.update) {
-                    requestAnimationFrame((timestamp) => {
-                        this.update(timestamp);
-                    });
-                }
-                
-                // 觸發變量更新回調，讓面板同步更新
-                if (this.onVariablesChange) {
-                    this.onVariablesChange(this.variables);
-                }
-                // 觸發物品欄更新回調
-                if (this.onInventoryChange) {
-                    this.onInventoryChange(this.inventory);
-                }
+                this.render && this.render();
             } catch (e) {
                 console.error('載入存檔失敗', e);
             }

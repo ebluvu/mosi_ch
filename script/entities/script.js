@@ -510,11 +510,6 @@ let scriptorium = {
             args: ['槽位編號']
         },
         {
-            name: '刪除遊戲進度',
-            text: '{delete-game ?}',
-            args: ['槽位編號']
-        },
-        {
             name: '設定全域變量',
             text: '{set-meta-var ?}',
             args: ['變量名稱', '參數']
@@ -540,21 +535,6 @@ let scriptorium = {
             args: ['確認訊息']
         },
         {
-            name: '輸入文字',
-            text: '{set-input ?}',
-            args: ['變數名稱', '提示訊息', '預設值']
-        },
-        {
-            name: '獲取輸入值',
-            text: '{input ?}',
-            args: ['變數名稱']
-        },
-        {
-            name: '檢查輸入是否存在',
-            text: '{has-input ?}',
-            args: ['變數名稱']
-        },
-        {
             name: '開啟網頁',
             text: '{pop-page ?}',
             args: ['網址']
@@ -568,16 +548,6 @@ let scriptorium = {
             name: '下載圖片檔案',
             text: '{download-img ?}',
             args: ['檔名', 'base64資料']
-        },
-        {
-            name: '重新整理網頁',
-            text: '{reload-page}',
-            args: []
-        },
-        {
-            name: '全螢幕',
-            text: '{fullscreen ?}',
-            args: ['on/off/switch']
         },
 
     ]
@@ -608,14 +578,6 @@ return {
         let isStr = x => typeof x === 'string'
         let isInt = x => !isNaN(x) && parseInt(x) === parseFloat(x)
         let isArr = x => Array.isArray(x)
-        
-        // 生成包含世界名稱的存檔鍵
-        let getSaveKey = (game, slot) => {
-            let worldName = game.world && game.world.worldName ? game.world.worldName : 'default'
-            // 將世界名稱編碼為安全的鍵名（替換特殊字符為下劃線）
-            let safeWorldName = worldName.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_')
-            return 'mosi-save-' + safeWorldName + '-' + slot
-        }
 
         // define expressions
         let expressions = {
@@ -959,7 +921,7 @@ return {
                     if (args && args.length > 0 && typeof args[0] === 'number') {
                         slot = args[0];
                     }
-                    let saveKey = getSaveKey(game, slot);
+                    let saveKey = 'mosi-save-' + slot;
                     let save = localStorage.getItem(saveKey);
                     return save !== null;
                 } catch (e) {
@@ -973,31 +935,6 @@ return {
                     return game.variables['confirm'].value === true;
                 }
                 return false;
-            },
-            // === 獲取輸入值表達式 ===
-            'input': (game, context, args) => {
-                if (args.length > 0 && typeof args[0] === 'string') {
-                    let varValue = game.variables[args[0]]?.value;
-                    if (typeof varValue === 'string' || typeof varValue === 'number') {
-                        return varValue;
-                    } else {
-                        return '';
-                    }
-                }
-                return '';
-            },
-            // === 檢查輸入是否存在表達式 ===
-            'has-input': (game, context, args) => {
-                if (args.length > 0 && typeof args[0] === 'string') {
-                    let varValue = game.variables[args[0]]?.value;
-                    // 如果變量存在且值不為空，返回 'true'，否則返回 'false'
-                    if (varValue !== undefined && varValue !== null && varValue !== '') {
-                        return 'true';
-                    } else {
-                        return 'false';
-                    }
-                }
-                return 'false';
             },
             // === 取得現在時間 ===
             'time-now': (game, context, args) => {
@@ -1843,39 +1780,8 @@ return {
                 args.forEach(opt => {
                     game.variables[opt] = { value: false, type: 'boolean' };
                 });
-                // 2. 記錄選項（保留原始文字，用於變數名稱）
+                // 2. 記錄選項
                 let choiceList = args.map(opt => opt.toString());
-                // 2.5. 解析選項文字中的特效標籤，將選項文字轉換為文字節點
-                let choiceTextNodes = [];
-                // 解析每個選項文字，應用當前的 textSettings
-                choiceList.forEach(optText => {
-                    // 將選項文字解析為文字節點
-                    let parsedNodes = Script.parse(optText);
-                    let localNodes = [];
-                    let addLocalNode = (node) => {
-                        localNodes.push(node);
-                    };
-                    // 使用 runNodes 解析選項文字中的特效標籤
-                    runNodes(parsedNodes, context, textSettings, addLocalNode);
-                    // 將解析後的文字節點合併為單一文字字串（保留特效資訊）
-                    let finalText = '';
-                    let finalColor = textSettings.color;
-                    let finalStyle = textSettings.style;
-                    localNodes.forEach(node => {
-                        if (node.type === 'text') {
-                            finalText += node.text;
-                            // 如果節點有指定顏色或樣式，使用節點的設定
-                            if (node.color) finalColor = node.color;
-                            if (node.style) finalStyle = node.style;
-                        }
-                    });
-                    // 將解析後的選項文字和特效資訊儲存
-                    choiceTextNodes.push({
-                        text: finalText || optText, // 如果解析失敗，使用原始文字
-                        color: finalColor,
-                        style: finalStyle
-                    });
-                });
                 // 3. 顯示選單，等待玩家輸入
                 window._mosiChoiceActive = true;
                 window._mosiChoiceList = choiceList;
@@ -1893,7 +1799,6 @@ return {
                 addNode({
                     type: 'choice',
                     choiceList: choiceList,
-                    choiceTextNodes: choiceTextNodes, // 新增：儲存解析後的文字節點資訊
                     getCurrent: function() { return window._mosiChoiceIndex; },
                     setCurrent: function(idx) { window._mosiChoiceIndex = idx; },
                     onSelect: function(idx) {
@@ -1954,7 +1859,7 @@ return {
                         if (args && args.length > 0 && typeof args[0] === 'number') {
                             slot = args[0];
                         }
-                        let saveKey = getSaveKey(game, slot);
+                        let saveKey = 'mosi-save-' + slot;
                         localStorage.setItem(saveKey, game.exportState());
                     }
                 } catch (e) {
@@ -1969,7 +1874,7 @@ return {
                         if (args && args.length > 0 && typeof args[0] === 'number') {
                             slot = args[0];
                         }
-                        let saveKey = getSaveKey(game, slot);
+                        let saveKey = 'mosi-save-' + slot;
                         let save = localStorage.getItem(saveKey);
                         if (save) {
                             game.importState(save);
@@ -1980,25 +1885,6 @@ return {
                     }
                 } catch (e) {
                     console.error('讀檔失敗', e);
-                }
-            },
-            'delete-game': (game, context, args) => {
-                try {
-                    // 取得槽位編號，預設為1
-                    let slot = 1;
-                    if (args && args.length > 0 && typeof args[0] === 'number') {
-                        slot = args[0];
-                    }
-                    let saveKey = getSaveKey(game, slot);
-                    let save = localStorage.getItem(saveKey);
-                    if (save) {
-                        localStorage.removeItem(saveKey);
-                    } else {
-                        // 如果沒有存檔，顯示瀏覽器彈出視窗
-                        alert('該槽位沒有存檔！');
-                    }
-                } catch (e) {
-                    console.error('刪除存檔失敗', e);
                 }
             },
             // === 全域（meta）變量 ===
@@ -2089,50 +1975,6 @@ return {
                     // 將結果儲存到全域變數中，供後續使用
                     if (typeof game.variables === 'object') {
                         game.variables['confirm'] = { value: result };
-                        // 觸發變量變化通知
-                        if (game.onVariablesChange) game.onVariablesChange(deepClone(game.variables));
-                    }
-                }
-                // 清除 keyCodes，避免移動操作重複執行
-                if (game.keyCodes) {
-                    game.keyCodes = [];
-                    game.keyActive = false;
-                }
-                // 清除 pointer 狀態，避免觸控操作重複執行
-                if (game.pointerIsDown !== undefined) {
-                    game.pointerIsDown = false;
-                }
-                if (game.oneMoreMove !== undefined) {
-                    game.oneMoreMove = false;
-                }
-            },
-            'set-input': (game, context, args) => {
-                if (args && args.length > 0 && typeof args[0] === 'string') {
-                    let varName = args[0];
-                    let promptMessage = args.length > 1 ? args[1] : '請輸入：';
-                    let defaultValue = args.length > 2 ? args[2] : '';
-                    
-                    let result = prompt(promptMessage, defaultValue);
-                    
-                    // 處理結果
-                    if (typeof game.variables === 'object') {
-                        if (result === null) {
-                            // 使用者點擊取消，刪除變量（如果存在）
-                            if (game.variables[varName]) {
-                                delete game.variables[varName];
-                            }
-                        } else if (result === '') {
-                            // 使用者點擊確定但輸入為空，刪除變量（如果存在）
-                            if (game.variables[varName]) {
-                                delete game.variables[varName];
-                            }
-                        } else {
-                            // 使用者輸入有效內容，正常儲存
-                            game.variables[varName] = { 
-                                value: result, 
-                                type: 'string'
-                            };
-                        }
                         // 觸發變量變化通知
                         if (game.onVariablesChange) game.onVariablesChange(deepClone(game.variables));
                     }
@@ -2385,81 +2227,6 @@ return {
                     game.oneMoreMove = false;
                 }
             },
-            'reload-page': (game, context, args) => {
-                // 重新整理網頁
-                location.reload();
-            },
-            'fullscreen': (game, context, args) => {
-                // 處理全螢幕功能
-                let action = args && args.length > 0 ? args[0].toLowerCase() : 'switch';
-                
-                // 檢查是否在全螢幕狀態
-                let isFullscreen = !!(
-                    document.fullscreenElement ||
-                    document.webkitFullscreenElement ||
-                    document.msFullscreenElement ||
-                    document.mozFullScreenElement
-                );
-                
-                // 進入全螢幕
-                let enterFullscreen = () => {
-                    const element = document.documentElement;
-                    if (element.requestFullscreen) {
-                        element.requestFullscreen();
-                    } else if (element.webkitRequestFullscreen) {
-                        element.webkitRequestFullscreen();
-                    } else if (element.msRequestFullscreen) {
-                        element.msRequestFullscreen();
-                    } else if (element.mozRequestFullScreen) {
-                        element.mozRequestFullScreen();
-                    } else {
-                        alert('您的瀏覽器或設備不支援全螢幕功能');
-                    }
-                };
-                
-                // 退出全螢幕
-                let exitFullscreen = () => {
-                    if (document.exitFullscreen) {
-                        document.exitFullscreen();
-                    } else if (document.webkitExitFullscreen) {
-                        document.webkitExitFullscreen();
-                    } else if (document.msExitFullscreen) {
-                        document.msExitFullscreen();
-                    } else if (document.mozCancelFullScreen) {
-                        document.mozCancelFullScreen();
-                    }
-                };
-                
-                // 根據動作執行
-                if (action === 'on') {
-                    if (!isFullscreen) {
-                        enterFullscreen();
-                    }
-                } else if (action === 'off') {
-                    if (isFullscreen) {
-                        exitFullscreen();
-                    }
-                } else if (action === 'switch') {
-                    if (isFullscreen) {
-                        exitFullscreen();
-                    } else {
-                        enterFullscreen();
-                    }
-                }
-                
-                // 清除 keyCodes，避免移動操作重複執行
-                if (game.keyCodes) {
-                    game.keyCodes = [];
-                    game.keyActive = false;
-                }
-                // 清除 pointer 狀態，避免觸控操作重複執行
-                if (game.pointerIsDown !== undefined) {
-                    game.pointerIsDown = false;
-                }
-                if (game.oneMoreMove !== undefined) {
-                    game.oneMoreMove = false;
-                }
-            },
 
         }
 
@@ -2579,11 +2346,7 @@ return {
         runNodes(parsedScript, context, defaultTextSettings, addNode)
 
         // display any dialog created from the script
-        if (dialogNodes.length > 0) {
-            // 檢查是否有 appendDialog 參數（從 runScript 傳遞）
-            let appendDialog = context && context._appendDialog === true
-            game.startDialog(dialogNodes, appendDialog)
-        }
+        if (dialogNodes.length > 0) game.startDialog(dialogNodes)
     },
 
     parse: (text) => {
