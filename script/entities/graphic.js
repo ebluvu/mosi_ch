@@ -94,112 +94,71 @@ let Graphic = {
     import: (that, graphicData) => {
         try {
             let graphic = JSON.parse(graphicData)
-            
-            // ====== 基本屬性驗證 ======
-            // 型別檢查
+            // 型別
             if (graphic.type !== 'picture' && graphic.type !== 'face') {
                 throw('type 必須是 picture 或 face！')
             }
-            
+            // ====== 進階驗證 ======
+            let graphicList = (that.state.graphicList || [])
             // 名稱檢查
             if (typeof graphic.name !== 'string' || graphic.name.trim() === '') {
                 throw('圖片名稱不能為空！')
             }
-            
-            // 檢查名稱是否已存在
-            let graphicList = (that.state.graphicList || [])
             if (graphicList.find(g => g.name === graphic.name)) {
                 throw(`圖片名稱 "${graphic.name}" 已存在！`)
             }
-            
-            // ====== 尺寸驗證 ======
-            // 檢查基本尺寸屬性
-            if (typeof graphic.spriteWidth !== 'number' || graphic.spriteWidth <= 0) {
-                throw('spriteWidth 必須是正整數！')
-            }
-            if (typeof graphic.spriteHeight !== 'number' || graphic.spriteHeight <= 0) {
-                throw('spriteHeight 必須是正整數！')
-            }
-            if (typeof graphic.width !== 'number' || graphic.width <= 0) {
-                throw('width 必須是正整數！')
-            }
-            if (typeof graphic.height !== 'number' || graphic.height <= 0) {
-                throw('height 必須是正整數！')
-            }
-            
-            // 檢查尺寸是否與當前世界設定相符
-            if (graphic.spriteWidth !== that.state.spriteWidth || graphic.spriteHeight !== that.state.spriteHeight) {
-                throw(`精靈尺寸不符！當前世界設定為 ${that.state.spriteWidth}x${that.state.spriteHeight}，匯入的圖片為 ${graphic.spriteWidth}x${graphic.spriteHeight}`)
-            }
-            
-            // ====== frameList 驗證 ======
+            // frameList 結構
             if (!Array.isArray(graphic.frameList) || graphic.frameList.length === 0) {
                 throw('frameList 結構錯誤或為空！')
             }
             if (!graphic.frameList.every(f => Array.isArray(f))) {
                 throw('frameList 內容必須都是陣列！')
             }
+            // frameList 內容必須是數字
             if (!graphic.frameList.every(f => f.every(v => typeof v === 'number'))) {
                 throw('frameList 內容必須都是數字！')
             }
             if (graphic.type === 'picture') {
-                // 檢查房間尺寸屬性
-                if (typeof graphic.roomWidth !== 'number' || graphic.roomWidth <= 0) {
-                    throw('picture 必須有 roomWidth 屬性且為正整數！')
+                // 尺寸
+                let width = graphic.roomWidth * graphic.spriteWidth
+                let height = graphic.roomHeight * graphic.spriteHeight
+                if (graphic.width !== width || graphic.height !== height) {
+                    throw('插圖尺寸不符！')
                 }
-                if (typeof graphic.roomHeight !== 'number' || graphic.roomHeight <= 0) {
-                    throw('picture 必須有 roomHeight 屬性且為正整數！')
-                }
-                
-                // 檢查房間尺寸是否與當前世界設定相符
-                if (graphic.roomWidth !== that.state.roomWidth || graphic.roomHeight !== that.state.roomHeight) {
-                    throw(`房間尺寸不符！當前世界設定為 ${that.state.roomWidth}x${that.state.roomHeight}，匯入的圖片為 ${graphic.roomWidth}x${graphic.roomHeight}`)
-                }
-                
-                // 驗證尺寸計算
-                let expectedWidth = graphic.roomWidth * graphic.spriteWidth
-                let expectedHeight = graphic.roomHeight * graphic.spriteHeight
-                if (graphic.width !== expectedWidth || graphic.height !== expectedHeight) {
-                    throw(`插圖尺寸不符！預期 ${expectedWidth}x${expectedHeight}，實際 ${graphic.width}x${graphic.height}`)
-                }
-                
-                // 檢查調色盤和音樂名稱
-                if (typeof graphic.paletteName !== 'string' || graphic.paletteName.trim() === '') {
-                    throw('picture 必須有 paletteName 屬性且不能為空！')
-                }
-                if (typeof graphic.musicName !== 'string' || graphic.musicName.trim() === '') {
-                    throw('picture 必須有 musicName 屬性且不能為空！')
-                }
-                
-                // 檢查 scriptList
+                // 必須有 paletteName/musicName
+                if (typeof graphic.paletteName !== 'string') throw('paletteName 必須是字串！')
+                if (typeof graphic.musicName !== 'string') throw('musicName 必須是字串！')
+                // scriptList
                 if (typeof graphic.scriptList !== 'object' || Array.isArray(graphic.scriptList)) {
                     throw('scriptList 必須是物件！')
                 }
-                if (typeof graphic.scriptList['on-show'] !== 'string') {
-                    throw('scriptList["on-show"] 必須是字串！')
+                if (typeof graphic.scriptList['on-show'] !== 'string' || typeof graphic.scriptList['on-hide'] !== 'string') {
+                    throw('scriptList 內容必須是字串！')
                 }
-                if (typeof graphic.scriptList['on-hide'] !== 'string') {
-                    throw('scriptList["on-hide"] 必須是字串！')
+                // frame 大小
+                if (!graphic.frameList.every(f => f.length === graphic.width * graphic.height)) {
+                    throw('frame 大小與圖片尺寸不符！')
                 }
-                
                 // 不應有 isTransparent
                 if ('isTransparent' in graphic) {
                     throw('picture 不應有 isTransparent 屬性！')
                 }
             } else if (graphic.type === 'face') {
-                // 驗證臉部尺寸計算
-                let expectedWidth = graphic.spriteWidth * 2
-                let expectedHeight = graphic.spriteHeight * 2
-                if (graphic.width !== expectedWidth || graphic.height !== expectedHeight) {
-                    throw(`臉部尺寸不符！預期 ${expectedWidth}x${expectedHeight}，實際 ${graphic.width}x${graphic.height}`)
+                // 尺寸
+                let width = graphic.spriteWidth * 2
+                let height = graphic.spriteHeight * 2
+                if (graphic.width !== width || graphic.height !== height) {
+                    throw('臉部尺寸不符！')
                 }
-                
                 // 必須有 isTransparent
                 if (typeof graphic.isTransparent !== 'boolean') {
-                    throw('face 必須有 isTransparent 屬性且為布林值！')
+                    throw('face 必須有 isTransparent 屬性！')
                 }
-                
-                // 不應有 picture 專用屬性
+                // frame 大小
+                if (!graphic.frameList.every(f => f.length === graphic.width * graphic.height)) {
+                    throw('frame 大小與臉部尺寸不符！')
+                }
+                // 不應有 paletteName/musicName/scriptList
                 if ('paletteName' in graphic) {
                     throw('face 不應有 paletteName 屬性！')
                 }
@@ -209,20 +168,7 @@ let Graphic = {
                 if ('scriptList' in graphic) {
                     throw('face 不應有 scriptList 屬性！')
                 }
-                if ('roomWidth' in graphic) {
-                    throw('face 不應有 roomWidth 屬性！')
-                }
-                if ('roomHeight' in graphic) {
-                    throw('face 不應有 roomHeight 屬性！')
-                }
             }
-            
-            // ====== frame 大小驗證 ======
-            let expectedFrameSize = graphic.width * graphic.height
-            if (!graphic.frameList.every(f => f.length === expectedFrameSize)) {
-                throw(`frame 大小與圖片尺寸不符！預期 ${expectedFrameSize} 像素，實際 ${graphic.frameList[0]?.length || 0} 像素`)
-            }
-            
             // ====== 驗證結束 ======
             Graphic.add(that, graphic)
         } catch (e) {

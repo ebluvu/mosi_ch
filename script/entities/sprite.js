@@ -1,6 +1,6 @@
 let Sprite = {
 
-    create: ({ name, isAvatar, isWall, isItem, isTransparent, spriteWidth, spriteHeight, onPush, onMessage, randomStart, customWidth, customHeight, collisionBox }) => {
+    create: ({ name, isAvatar, isWall, isItem, isTransparent, spriteWidth, spriteHeight, onPush, onMessage, randomStart }) => {
         let newSprite = {
             name: name || '',
             isAvatar: isAvatar || false,
@@ -8,21 +8,9 @@ let Sprite = {
             isItem: isItem || false,
             isTransparent: isTransparent || false,
             colorIndex: 1,
-            width: customWidth || spriteWidth,
-            height: customHeight || spriteHeight,
-            // === 新增：支援不同尺寸精靈 ===
-            baseWidth: spriteWidth,  // 基礎網格尺寸
-            baseHeight: spriteHeight, // 基礎網格尺寸
-            gridWidth: customWidth ? Math.ceil(customWidth / spriteWidth) : 1,  // 佔用網格寬度
-            gridHeight: customHeight ? Math.ceil(customHeight / spriteHeight) : 1, // 佔用網格高度
-            // === 新增：碰撞體設定 ===
-            collisionBox: collisionBox || {
-                x: 0,
-                y: 0,
-                width: customWidth || spriteWidth,
-                height: customHeight || spriteHeight
-            },
-            frameList: [Array((customWidth || spriteWidth) * (customHeight || spriteHeight)).fill(0)],
+            width: spriteWidth,
+            height: spriteHeight,
+            frameList: [Array(spriteWidth * spriteHeight).fill(0)],
             scriptList: {
                 'on-push': onPush || '',
                 'on-message': onMessage || ''
@@ -30,7 +18,7 @@ let Sprite = {
         }
         if (randomStart) {
             newSprite.frameList = [
-                Sprite.randomFrame(customWidth || spriteWidth, customHeight || spriteHeight)
+                Sprite.randomFrame(spriteWidth, spriteHeight)
             ]
         }
         return newSprite
@@ -342,30 +330,10 @@ let Sprite = {
 
     createGif: (that, spriteIndex, scale, colorList, onComplete) => {
         let { spriteList, spriteWidth, spriteHeight } = that.state
-        let sprite = deepClone(spriteList[spriteIndex]) // 深拷貝，避免污染原資料
+        let sprite = spriteList[spriteIndex]
 
-        // --- 單色判斷與 frameList 轉換（與匯出一致）---
-        if (sprite.frameList && Array.isArray(sprite.frameList)) {
-            let allIndices = new Set();
-            sprite.frameList.forEach(frame => {
-                frame.forEach(v => allIndices.add(v));
-            });
-            allIndices.delete(0);
-            if (allIndices.size === 1) {
-                // 單色
-                let colorIndex = [...allIndices][0];
-                sprite.colorIndex = colorIndex;
-                sprite.frameList = sprite.frameList.map(frame =>
-                    frame.map(v => v === colorIndex ? 1 : 0)
-                );
-            } else {
-                // 多色
-                delete sprite.colorIndex;
-            }
-        }
-
-        let width = sprite.width * scale
-        let height = sprite.height * scale
+        let width = spriteWidth * scale
+        let height = spriteHeight * scale
 
         let frameCount = 12
         let frames = Array(frameCount).fill(0).map(() =>
@@ -376,29 +344,23 @@ let Sprite = {
             let frameIndex = i % sprite.frameList.length
             let spriteFrame = sprite.frameList[frameIndex]
 
-            // 判斷是否多色
-            let isMulticolor = spriteFrame.some(p => p > 1)
             let colorIndex = sprite.colorIndex
             while (colorIndex > 0 && !colorList[colorIndex]) colorIndex--
 
             spriteFrame.forEach((pixel, j) => {
                 if (!pixel) return
-                let pxOffset = Math.floor(j % sprite.width) * scale
-                let pyOffset = Math.floor(j / sprite.width) * scale
+                let pxOffset = Math.floor(j % spriteWidth) * scale
+                let pyOffset = Math.floor(j / spriteWidth) * scale
                 for (let x = 0; x < scale; x++) {
                     for (let y = 0; y < scale; y++) {
                         let pixelIndex = x + pxOffset + ((y + pyOffset) * width)
-                        if (isMulticolor) {
-                            frame[pixelIndex] = pixel // 多色：直接 palette index
-                        } else {
-                            frame[pixelIndex] = colorIndex // 單色：主色
-                        }
+                        frame[pixelIndex] = colorIndex
                     }
                 }
             })
         })
 
-        GIF.encode(width, height, frames, FRAME_RATE, colorList, onComplete, !!sprite.isTransparent)
+        GIF.encode(width, height, frames, FRAME_RATE, colorList, onComplete)
     },
 
     updateScript: (that, spriteIndex, event, script) => {
@@ -414,11 +376,12 @@ let Sprite = {
 
         sprite.frameList = sprite.frameList.map(frame => {
             let newFrame = Array(newWidth * newHeight).fill(0)
-            for (let y = 0; y < Math.min(oldHeight, newHeight); y++) {
-                for (let x = 0; x < Math.min(oldWidth, newWidth); x++) {
+            for (let x = 0; x < oldWidth; x++) {
+                for (let y = 0; y < oldHeight; y++) {
                     let oldIndex = y * oldWidth + x
+                    let oldPixelData = frame[oldIndex]
                     let newIndex = y * newWidth + x
-                    newFrame[newIndex] = frame[oldIndex]
+                    newFrame[newIndex] = oldPixelData
                 }
             }
             return newFrame

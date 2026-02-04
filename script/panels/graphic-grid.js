@@ -47,7 +47,7 @@ class GraphicGrid extends Component {
 
     // 新增：快取所有 graphic 的所有幀
     cacheGraphicFrames = () => {
-        const { graphicList = [], colorList = [], paletteList = [], cacheAllFrames = true } = this.props
+        const { graphicList = [], colorList = [], paletteList = [] } = this.props
         // 檢查是否需要重新快取（graphicList 或 colorList 或 paletteList 改變時）
         if (this.lastGraphicList === graphicList && 
             this.lastColorList === colorList && 
@@ -67,8 +67,7 @@ class GraphicGrid extends Component {
             }
             // face 類型：始終使用當前房間的調色盤（colorList）
             
-            const frames = cacheAllFrames ? graphic.frameList : [graphic.frameList[0]]
-            this.graphicFrameCache[graphic.name] = frames.map(frame => {
+            this.graphicFrameCache[graphic.name] = graphic.frameList.map(frame => {
                 let frameCanvas = document.createElement('canvas')
                 frameCanvas.width = graphic.width
                 frameCanvas.height = graphic.height
@@ -83,9 +82,7 @@ class GraphicGrid extends Component {
                     let x = i % graphic.width
                     let y = Math.floor(i / graphic.width)
                     if (paletteIndex === 0 && graphic.isTransparent) return
-                    // 修正：所有超出範圍的顏色都使用最後一個顏色，而不是純黑色
-                    let safeIndex = Math.min(paletteIndex, graphicColorList.length - 1)
-                    context.fillStyle = graphicColorList[safeIndex] || '#000'
+                    context.fillStyle = graphicColorList[paletteIndex] || '#000'
                     context.fillRect(x, y, 1, 1)
                 })
                 return frameCanvas
@@ -112,20 +109,37 @@ class GraphicGrid extends Component {
     }
 
     pointerMove = (e) => {
-        // 僅在拖曳選取時更新座標，避免每次移動都觸發重繪
-        if (!this.pointerIsDown) return;
         let filteredList = this.getFilteredList();
         let { gridWidth } = this.props;
         let total = filteredList.length;
         if (total === 0) return;
         let width = Math.min(gridWidth, total);
         let height = total > 0 ? Math.ceil(total / gridWidth) : 1;
-        e.preventDefault();
-        let pointer = e.touches ? e.touches[0] : e;
-        this.pointerPos = {
-            x: pointer.clientX,
-            y: pointer.clientY
-        };
+        if (this.pointerIsDown) {
+            e.preventDefault();
+            let pointer = e.touches ? e.touches[0] : e;
+            this.pointerPos = {
+                x: pointer.clientX,
+                y: pointer.clientY
+            };
+        }
+        let rect = this.node.getBoundingClientRect();
+        let tileWidth = rect.width / width;
+        let tileHeight = rect.height / height;
+        let relX = (e.touches ? e.touches[0].clientX : e.clientX) - rect.x;
+        let relY = (e.touches ? e.touches[0].clientY : e.clientY) - rect.y;
+        if (relX < 0 || relY < 0 || relX >= rect.width || relY >= rect.height) {
+            this.setState({ hoverIndex: -1 });
+            return;
+        }
+        let x = Math.floor(relX / tileWidth);
+        let y = Math.floor(relY / tileHeight);
+        let idx = y * width + x;
+        if (idx >= 0 && idx < filteredList.length) {
+            this.setState({ hoverIndex: idx });
+        } else {
+            this.setState({ hoverIndex: -1 });
+        }
     }
 
     pointerEnd = (e) => {
@@ -166,13 +180,13 @@ class GraphicGrid extends Component {
         }
         
         this.node.addEventListener('mousedown', this.pointerStart)
-        this.node.addEventListener('mousemove', this.pointerMove)
+        document.addEventListener('mousemove', this.pointerMove)
         document.addEventListener('mouseup', this.pointerEnd)
     
         this.node.addEventListener('touchstart', this.pointerStart, { passive: false })
         document.addEventListener('touchend', this.pointerEnd, { passive: false })
         document.addEventListener('touchcancel', this.pointerEnd, { passive: false })
-        this.node.addEventListener('touchmove', this.pointerMove, { passive: false })
+        document.addEventListener('touchmove', this.pointerMove, { passive: false })
  
         // 確保在 DOM 準備好後自動 focus
         if (this.node.classList.contains('initial-focus')) {
@@ -191,13 +205,13 @@ class GraphicGrid extends Component {
     componentWillUnmount() {
         if (!this.node) return;
         this.node.removeEventListener('mousedown', this.pointerStart)
-        this.node.removeEventListener('mousemove', this.pointerMove)
+        document.removeEventListener('mousemove', this.pointerMove)
         document.removeEventListener('mouseup', this.pointerEnd)
     
         this.node.removeEventListener('touchstart', this.pointerStart)
         document.removeEventListener('touchend', this.pointerEnd)
         document.removeEventListener('touchcancel', this.pointerEnd)
-        this.node.removeEventListener('touchmove', this.pointerMove)
+        document.removeEventListener('touchmove', this.pointerMove)
         
 
         
@@ -242,6 +256,7 @@ class GraphicGrid extends Component {
     shouldComponentUpdate(nextProps, nextState) {
         // 記憶體優化：只在必要時重新渲染
         if (nextState.graphicIndex !== this.state.graphicIndex) return true
+        if (nextState.hoverIndex !== this.state.hoverIndex) return true
         
         // 檢查關鍵 props 變化
         if (nextProps.graphicList !== this.props.graphicList) return true
@@ -374,9 +389,7 @@ class GraphicGrid extends Component {
                     let idx = y * width + x;
                     let paletteIndex = frame[idx];
                     if (paletteIndex === 0 && isTransparent) continue;
-                    // 修正：所有超出範圍的顏色都使用最後一個顏色，而不是純黑色
-                    let safeIndex = Math.min(paletteIndex, graphicColorList.length - 1);
-                    context.fillStyle = graphicColorList[safeIndex] || '#000';
+                    context.fillStyle = graphicColorList[paletteIndex] || '#000';
                     context.fillRect(
                         xOffset + x * scaleX,
                         yOffset + y * scaleY,
@@ -391,9 +404,7 @@ class GraphicGrid extends Component {
                 for (let x = 0; x < width; x++) {
                     let idx = y * width + x;
                     let paletteIndex = frame[idx];
-                    // 修正：所有超出範圍的顏色都使用最後一個顏色，而不是純黑色
-                    let safeIndex = Math.min(paletteIndex, graphicColorList.length - 1);
-                    context.fillStyle = graphicColorList[safeIndex] || '#000';
+                    context.fillStyle = graphicColorList[paletteIndex] || '#000';
                     context.fillRect(
                         xOffset + x,
                         yOffset + y,
@@ -589,8 +600,8 @@ class GraphicGrid extends Component {
         return div({
             className: 'grid graphic-grid ' + className,
             style: {
-                width: '100%',
-                aspectRatio: `${canvasWidth} / ${canvasHeight}`,
+                width: widthRatio * 100 + '%',
+                paddingTop: heightRatio * 100 + '%',
                 background: backgroundColor
             },
             ref: node => { this.node = node },

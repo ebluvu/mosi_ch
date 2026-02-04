@@ -50,9 +50,6 @@ let World = {
 
             // 對話框皮膚（統一為 list）
             textboxSkinList: [],
-            
-            // 對話框最大行數設定
-            dialogMaxLines: 2,
         }
 
         // create avatar
@@ -340,11 +337,8 @@ let World = {
 
             // 初始化主體顏色設定
             if (typeof world.mainPaletteIndex === 'undefined') world.mainPaletteIndex = 0
-            if (typeof world.mainBgColorIndex === 'undefined') world.mainBgColorIndex = 1
-            if (typeof world.mainTextColorIndex === 'undefined') world.mainTextColorIndex = 0
-
-            // 初始化對話框最大行數設定
-            if (typeof world.dialogMaxLines === 'undefined') world.dialogMaxLines = 2
+            if (typeof world.mainBgColorIndex === 'undefined') world.mainBgColorIndex = 0
+            if (typeof world.mainTextColorIndex === 'undefined') world.mainTextColorIndex = 1
 
             // 過濾舊版數據結構
             delete world.themeTextColor
@@ -379,9 +373,6 @@ let World = {
             if (!('textboxSkin' in world)) {
                 world.textboxSkin = null;
             }
-
-            // 在 import 時，若 textboxSkin 沒有 isTransparent，預設補 true
-            if (world.textboxSkin && typeof world.textboxSkin.isTransparent !== 'boolean') world.textboxSkin.isTransparent = true;
 
             that.updateWorld(world)
             return world

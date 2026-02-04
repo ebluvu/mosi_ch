@@ -24,16 +24,7 @@ class Main extends Component {
             graphicType: 'picture', // 新增
             // 新增對話框皮膚狀態
             textboxSkin: null,
-            // 新增對話框最大行數設定
-            dialogMaxLines: 2,
         }
-
-        this.panelOrder = [
-            'welcome', 'world', 'room', 'spriteList', 'sprite', 'graphicList', 'graphic', 'script', 'paletteList', 'palette', 'musicList', 'music', 'inventory'
-        ];
-        this.draggingPanel = null;
-        this.dragOverPanel = null;
-        window._panelDrag = id => { this.draggingPanel = id; };
 
         this.setCurrentTab = (tab, skipHistory) => {
             let { currentTab, tabVisibility, tabHistory, oneTabMode } = this.state
@@ -98,11 +89,6 @@ class Main extends Component {
             this.setState({ oneTabMode, tabVisibility })
         }
 
-        // 初始化對話框最大行數設定
-        if (typeof window.dialogMaxLines === 'undefined') {
-            window.dialogMaxLines = 2
-        }
-
         this.save = () => {
             try {
                 const stateToSave = { ...this.state }
@@ -130,13 +116,6 @@ class Main extends Component {
                 delete stateToSave.avatarX
                 delete stateToSave.avatarY
                 delete stateToSave.avatarDirection
-                // 刪除拖曳欄位
-                delete stateToSave.draggedPanel
-                delete stateToSave.dragOverPanel
-                delete stateToSave.dragStartIndex
-                delete stateToSave.dragCurrentIndex
-                delete stateToSave.panelOrder
-                delete stateToSave.draggingPanel
                 // 刪除最外層 world 欄位（徹底清理）
                 if ('world' in stateToSave) delete stateToSave.world;
                 window.localStorage.setItem('mosi-state', JSON.stringify(stateToSave))
@@ -173,13 +152,6 @@ class Main extends Component {
                     delete newState.avatarX
                     delete newState.avatarY
                     delete newState.avatarDirection
-                    // 刪除拖曳欄位
-                    delete newState.draggedPanel
-                    delete newState.dragOverPanel
-                    delete newState.dragStartIndex
-                    delete newState.dragCurrentIndex
-                    delete newState.panelOrder
-                    delete newState.draggingPanel
                     // 刪除最外層 world 欄位（徹底清理）
                     if ('world' in newState) delete newState.world;
 
@@ -211,16 +183,8 @@ class Main extends Component {
                             }
                         })
                     }
-                    // 處理 dialogMaxLines
-                    let dialogMaxLines = 2
-                    if (newState && typeof newState.dialogMaxLines === 'number' && newState.dialogMaxLines >= 2 && newState.dialogMaxLines <= 10) {
-                        dialogMaxLines = newState.dialogMaxLines
-                    }
-                    
                     this.setState(newState)
                     World.import(this, newState)
-                    // 同時更新 window 變數以保持向後相容
-                    window.dialogMaxLines = dialogMaxLines
                     
                     // 根據當前選中的圖片類型自動設定 graphicType
                     if (newState.graphicList && newState.graphicList.length > 0 && newState.currentGraphicIndex !== undefined) {
@@ -266,13 +230,6 @@ class Main extends Component {
             delete newWorldState.avatarX
             delete newWorldState.avatarY
             delete newWorldState.avatarDirection
-            // 刪除拖曳欄位
-            delete newWorldState.draggedPanel
-            delete newWorldState.dragOverPanel
-            delete newWorldState.dragStartIndex
-            delete newWorldState.dragCurrentIndex
-            delete newWorldState.panelOrder
-            delete newWorldState.draggingPanel
             // 刪除最外層 world 欄位（徹底清理）
             if ('world' in newWorldState) delete newWorldState.world;
             
@@ -284,13 +241,6 @@ class Main extends Component {
             }
             if (!newWorldState.variables) newWorldState.variables = {}
             newWorldState.variables = upgradeVariables(newWorldState.variables)
-            
-            // 處理 dialogMaxLines
-            if (typeof newWorldState.dialogMaxLines === 'number' && newWorldState.dialogMaxLines >= 2 && newWorldState.dialogMaxLines <= 10) {
-                this.setState({ dialogMaxLines: newWorldState.dialogMaxLines })
-                window.dialogMaxLines = newWorldState.dialogMaxLines
-            }
-            
             if (newWorldState.customSpriteGroups) {
                 this.setState(newWorldState)
             } else {
@@ -442,15 +392,7 @@ class Main extends Component {
                     })
                 }
                 
-                // 處理 dialogMaxLines
-                let dialogMaxLines = 2
-                if (newState && typeof newState.dialogMaxLines === 'number' && newState.dialogMaxLines >= 2 && newState.dialogMaxLines <= 10) {
-                    dialogMaxLines = newState.dialogMaxLines
-                }
-                
-                that.setState({ customSpriteGroups, dialogMaxLines })
-                // 同時更新 window 變數以保持向後相容
-                window.dialogMaxLines = dialogMaxLines
+                that.setState({ customSpriteGroups })
             }
         }
 
@@ -513,7 +455,6 @@ class Main extends Component {
 
         // 對話框皮膚只允許一個，移除 list 結構
         this.setTextboxSkin = (skin) => {
-            if (skin && typeof skin.isTransparent !== 'boolean') skin.isTransparent = true;
             this.setState({ textboxSkin: skin });
         }
     }
@@ -610,20 +551,10 @@ class Main extends Component {
 
         let roomPaletteName = currentRoom.paletteName
         let roomPaletteIndex = paletteList.findIndex(p => p.name === roomPaletteName)
-        // 如果找不到對應的調色盤，自動切換到第一個調色盤
-        if (roomPaletteIndex === -1) {
-            roomPaletteIndex = 0
-            currentRoom.paletteName = paletteList[0]?.name || 'default'
-        }
         let roomPalette = paletteList[roomPaletteIndex]
 
         let roomMusicName = currentRoom.musicName
         let roomMusicIndex = musicList.findIndex(p => p.name === roomMusicName)
-        // 如果找不到對應的音樂，自動切換到第一個音樂
-        if (roomMusicIndex === -1) {
-            roomMusicIndex = 0
-            currentRoom.musicName = musicList[0]?.name || 'default'
-        }
 
         // 防護檢查：確保 spriteList 和 currentSpriteIndex 存在且有效
         if (!spriteList || !Array.isArray(spriteList) || spriteList.length === 0) {
@@ -718,12 +649,6 @@ class Main extends Component {
                 mainTextColorIndex,
                 setTextboxSkin: this.setTextboxSkin,
                 textboxSkin: this.state.textboxSkin,
-                dialogMaxLines: this.state.dialogMaxLines,
-                setDialogMaxLines: (value) => {
-                    this.setState({ dialogMaxLines: value })
-                    // 同時更新 window 變數以保持向後相容
-                    window.dialogMaxLines = value
-                },
             })
 
         let roomTab = !tabVisibility.room ? null :
@@ -801,22 +726,8 @@ class Main extends Component {
             h(GraphicListPanel, {
                 closeTab: this.closeTab.bind(this, 'graphicList'),
                 selectGraphic: (index) => {
-                    // 更新目前的插圖索引與類型
-                    const g = graphicList && graphicList[index] ? graphicList[index] : null
-                    if (g) {
-                        this.setState({ currentGraphicIndex: index, graphicType: g.type })
-                        // picture：直接切換到腳本面板（on-show / on-hide）
-                        if (g.type === 'picture') {
-                            this.openScriptTab('graphic')
-                        } else {
-                            // face：維持插圖編輯面板
-                            this.setCurrentTab('graphic')
-                        }
-                    } else {
-                        // 安全回退
-                        this.setState({ currentGraphicIndex: index })
-                        this.setCurrentTab('graphic')
-                    }
+                    this.setState({ currentGraphicIndex: index });
+                    this.setCurrentTab('graphic');
                 },
                 editGraphic: () => this.setCurrentTab('graphic'),
                 addGraphic: (graphic) => World.addGraphic(this, graphic),
@@ -909,11 +820,6 @@ class Main extends Component {
                     } else {
                         if (currentGraphic.paletteName) {
                             let palette = paletteList.find(p => p.name === currentGraphic.paletteName);
-                            // 如果找不到對應的調色盤，自動切換到第一個調色盤
-                            if (!palette && paletteList.length > 0) {
-                                currentGraphic.paletteName = paletteList[0].name;
-                                palette = paletteList[0];
-                            }
                             return palette ? palette.colorList : ['#000000'];
                         }
                         return ['#000000'];
@@ -1060,7 +966,7 @@ class Main extends Component {
         let spriteButtonSelected = tabVisibility.sprite || tabVisibility.spriteList || (tabVisibility.script && scriptTabType === 'sprite')
         let paletteButtonSelected = tabVisibility.palette || tabVisibility.paletteList
         let musicButtonSelected = tabVisibility.music || tabVisibility.musicList
-        let graphicButtonSelected = tabVisibility.graphic || tabVisibility.graphicList || (tabVisibility.script && scriptTabType === 'graphic')
+        let graphicButtonSelected = (graphicList && graphicList.length > 0 && tabVisibility.graphic) || tabVisibility.graphicList;
 
         let header = tabVisibility.play ? null :
             div({ className: 'editor-header row' }, [
@@ -1092,10 +998,7 @@ class Main extends Component {
                     title: 'graphics',
                     className: 'simple' + (graphicButtonSelected ? ' selected' : ''),
                     onclick: () => {
-                        if (!graphicList || graphicList.length === 0) {
-                            // 沒有資料直接顯示 graphic-list-panel
-                            this.setCurrentTab('graphicList')
-                        } else if (tabVisibility.graphic) {
+                        if (tabVisibility.graphic) {
                             this.setCurrentTab('graphicList')
                         } else {
                             this.setCurrentTab('graphic')
@@ -1145,80 +1048,19 @@ class Main extends Component {
         return div({ className: 'main' }, [
             header,
             div({ id: 'tabs', className: 'tabs' }, [
-                ...this.panelOrder.map((panelKey, idx) => {
-                    let tab = null;
-                    switch(panelKey) {
-                        case 'welcome': tab = welcomeTab; break;
-                        case 'world': tab = worldTab; break;
-                        case 'room': tab = roomTab; break;
-                        case 'spriteList': tab = spriteListTab; break;
-                        case 'sprite': tab = spriteTab; break;
-                        case 'graphicList': tab = graphicListTab; break;
-                        case 'graphic':
-                            // 只有 graphicList 有資料且 tabVisibility.graphic 為 true 才顯示 graphicTab
-                            if (graphicList && graphicList.length > 0 && tabVisibility.graphic) {
-                                tab = graphicTab;
-                            } else {
-                                tab = null;
-                            }
-                            break;
-                        case 'script': tab = scriptTab; break;
-                        case 'paletteList': tab = paletteListTab; break;
-                        case 'palette': tab = paletteTab; break;
-                        case 'musicList': tab = musicListTab; break;
-                        case 'music': tab = musicTab; break;
-                        case 'inventory': tab = inventoryTab; break;
-                        default: tab = null;
-                    }
-                    if (!tab || !tabVisibility[panelKey]) return null;
-                    return h('div', {
-                        key: panelKey,
-                        className: 'drag-panel' +
-                            (this.draggingPanel === panelKey ? ' dragging' : '') +
-                            (this.dragOverPanel === panelKey ? ' drag-over' : ''),
-                        draggable: true,
-                        ondragstart: e => {
-                            // 只允許 header 觸發拖曳
-                            if (!e.target.classList.contains('panel-header')) {
-                                e.preventDefault();
-                                return false;
-                            }
-                            e.dataTransfer.effectAllowed = 'move';
-                            e.dataTransfer.setData('text/plain', panelKey);
-                            this.draggingPanel = panelKey;
-                        },
-                        ondragover: e => {
-                            e.preventDefault();
-                            if (this.dragOverPanel !== panelKey) {
-                                this.dragOverPanel = panelKey;
-                                this.forceUpdate();
-                            }
-                        },
-                        ondragleave: e => {
-                            // 只在真的離開整個 panel 時才清除 dragOverPanel
-                            if (!e.currentTarget.contains(e.relatedTarget)) {
-                                if (this.dragOverPanel === panelKey) {
-                                    this.dragOverPanel = null;
-                                    this.forceUpdate();
-                                }
-                            }
-                        },
-                        ondrop: e => {
-                            e.preventDefault();
-                            if (this.draggingPanel && this.draggingPanel !== panelKey) {
-                                const from = this.panelOrder.indexOf(this.draggingPanel);
-                                const to = this.panelOrder.indexOf(panelKey);
-                                if (from !== -1 && to !== -1) {
-                                    this.panelOrder.splice(to, 0, this.panelOrder.splice(from, 1)[0]);
-                                    this.forceUpdate();
-                                }
-                            }
-                            this.draggingPanel = null;
-                            this.dragOverPanel = null;
-                            this.forceUpdate(); // 確保 drag-over 樣式消失
-                        },
-                    }, tab);
-                })
+                welcomeTab,
+                worldTab,
+                roomTab,
+                spriteListTab,
+                spriteTab,
+                graphicListTab,
+                graphicTab,
+                scriptTab,
+                paletteListTab,
+                paletteTab,
+                musicListTab,
+                musicTab,
+                inventoryTab
             ]),
             errorOverlay,
         ])

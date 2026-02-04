@@ -100,7 +100,7 @@ class WorldGrid extends Component {
                         }
                     })
                 }
-                let color = colorList[Math.min(colorIndex, colorList.length - 1)]
+                let color = colorList[colorIndex]
                 context.fillStyle = color
                 context.fillRect(tile.x, tile.y, 1, 1)
             })

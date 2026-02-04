@@ -53,13 +53,6 @@ class GraphicListPanel extends Component {
             if (graphic.type !== type) return false
             if (filter && !graphic.name.includes(filter)) return false
             return true
-        }).sort((a, b) => {
-            // 按名稱排序
-            let nameA = a.name.toUpperCase()
-            let nameB = b.name.toUpperCase()
-            if (nameA < nameB) return -1
-            if (nameA > nameB) return 1
-            return 0
         })
 
         let addGraphicButton = !addGraphic ? null :
@@ -137,9 +130,8 @@ class GraphicListPanel extends Component {
             type,
             colorList,
             paletteList, // 傳遞 paletteList
-            gridWidth: 2,
-            isAnimated: false,
-            cacheAllFrames: false
+            gridWidth: 4,
+            isAnimated: true // 啟用動畫預覽
         })
 
         let panelContent = [
@@ -150,7 +142,7 @@ class GraphicListPanel extends Component {
                 typeButtons,
             ]),
             hr(),
-            div({ className: 'grid-container', style: { maxHeight: '450px', overflowY: 'auto' } }, [
+            div({ className: 'grid-container' }, [
                 graphicGrid,
             ]),
             importOverlay

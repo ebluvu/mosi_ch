@@ -201,15 +201,6 @@ class WorldPanel extends Component {
                 fontDirection,
                 fontData,
                 textScale,
-                dialogMaxLines: this.props.dialogMaxLines || 2,
-                setDialogMaxLines: (value) => {
-                    // 更新世界數據中的 dialogMaxLines
-                    if (this.props.setDialogMaxLines) {
-                        this.props.setDialogMaxLines(value)
-                    }
-                    // 同時更新 window 變數以保持向後相容
-                    window.dialogMaxLines = value
-                },
                 closeOverlay: () => this.setState({ showFontOverlay: false }),
                 setFontResolution,
                 setFontDirection,
