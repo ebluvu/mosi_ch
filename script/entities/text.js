@@ -181,17 +181,32 @@ return {
             for (let i = startLine; i < endLine; i++) {
                 let opt = choiceList[i];
                 let optText = opt;
+                // 新增：如果有解析後的文字節點資訊，使用它
+                let optTextNode = node.choiceTextNodes && node.choiceTextNodes[i];
+                if (optTextNode) {
+                    optText = optTextNode.text;
+                }
                 let optY = Math.floor(y + (i - startLine) * fontData.height * lineSpacing);
-                let showChars = Math.max(0, Math.min(optText.length, (typeof maxChars === 'number' ? maxChars : -1) - charsSoFar));
+                // 修正：當 maxChars === -1 時（快速跳過），應該顯示所有文字
+                let showChars;
+                if (typeof maxChars === 'number' && maxChars >= 0) {
+                    showChars = Math.max(0, Math.min(optText.length, maxChars - charsSoFar));
+                } else {
+                    // maxChars === -1 時，顯示所有文字
+                    showChars = optText.length;
+                }
                 let displayText = optText.substring(0, showChars);
+                // 新增：使用文字節點的顏色和樣式（如果有），否則使用預設值
+                let optColor = optTextNode && optTextNode.color ? optTextNode.color : defaultTextColor;
+                let optStyle = optTextNode && optTextNode.style ? optTextNode.style : '';
                 // 畫選項文字
                 Text.drawSeq(
                     context,
                     fontData,
                     fontDirection,
                     displayText,
-                    defaultTextColor,
-                    '',
+                    optColor,
+                    optStyle,
                     x,
                     optY,
                     timestamp
@@ -214,20 +229,8 @@ return {
                     // === 完全比照 drawContinueIndicator 的皮膚動畫寫法 ===
                     let useWorld = world || (window.game && window.game.world);
                     let useSkin = useWorld && useWorld.textboxSkin;
-                    // 取得正確 palette：根據房間 paletteName 找 paletteList
-                    let paletteList = useWorld && useWorld.paletteList;
-                    let roomList = useWorld && useWorld.roomList;
-                    let paletteName = null;
-                    if (roomList && typeof useWorld.currentRoomIndex === 'number' && roomList[useWorld.currentRoomIndex]) {
-                        paletteName = roomList[useWorld.currentRoomIndex].paletteName;
-                    }
-                    let usePalette = null;
-                    if (paletteList && paletteName) {
-                        usePalette = paletteList.find(p => p.name === paletteName);
-                    }
-                    if (!usePalette && paletteList && typeof useWorld.mainPaletteIndex === 'number') {
-                        usePalette = paletteList[useWorld.mainPaletteIndex];
-                    }
+                    // 使用傳入的 palette 參數（已經是當前房間的動態調色盤）
+                    let usePalette = palette;
                     let frameCount = useSkin && useSkin.indicatorList ? useSkin.indicatorList.length : 1;
                     let frameIdx = (typeof window._mosiChoiceArrowFrame === 'number') ? (window._mosiChoiceArrowFrame % frameCount) : Math.floor((Date.now() / 400) % frameCount);
                     let indicator = useSkin && useSkin.indicatorList ? useSkin.indicatorList[frameIdx] : null;
@@ -259,7 +262,10 @@ return {
                 charsSoFar += optText.length + 1;
             }
             // 控制動畫跑完才能互動
-            window._mosiChoiceCanInteract = ((typeof maxChars === 'number' ? maxChars : -1) >= allChars);
+            // 修正：當 maxChars === -1 時（快速跳過），應該允許互動
+            window._mosiChoiceCanInteract = (typeof maxChars === 'number' && maxChars >= 0) 
+                ? (maxChars >= allChars) 
+                : true; // maxChars === -1 時表示顯示所有內容，允許互動
             // === 事件移除工具 ===
             function removeChoiceEventListeners() {
                 let canvases = document.querySelectorAll('canvas');
@@ -268,12 +274,18 @@ return {
                     textCanvas.removeEventListener('mousedown', window._mosiChoiceMouseDown);
                     textCanvas.removeEventListener('mousemove', window._mosiChoiceMouseMove);
                     textCanvas.removeEventListener('mouseup', window._mosiChoiceMouseUp);
+                    // 修正：touch 事件是註冊在 textCanvas 上的，應該從 textCanvas 移除
+                    textCanvas.removeEventListener('touchstart', window._mosiChoiceTouchStart);
+                    textCanvas.removeEventListener('touchmove', window._mosiChoiceTouchMove);
+                    textCanvas.removeEventListener('touchend', window._mosiChoiceTouchEnd);
                     textCanvas.style.pointerEvents = 'none'; // 讓事件能傳到主流程
                 }
                 window.removeEventListener('keydown', window._mosiChoiceKeyHandler);
-                window.removeEventListener('touchstart', window._mosiChoiceTouchStart);
-                window.removeEventListener('touchmove', window._mosiChoiceTouchMove);
-                window.removeEventListener('touchend', window._mosiChoiceTouchEnd);
+                // 清理 timeout（如果存在）
+                if (window._mosiChoiceTouchHandledTimeout) {
+                    clearTimeout(window._mosiChoiceTouchHandledTimeout);
+                    window._mosiChoiceTouchHandledTimeout = null;
+                }
             }
             if (!node._mosiOnSelectWrapped) {
                 let _originOnSelect = node.onSelect;
@@ -301,15 +313,25 @@ return {
                 node._mosiOnSelectWrapped = true;
             }
             // 每次渲染都重新綁定keydown與pointer/touch事件
+            // 先清理舊的事件監聽器
             window.removeEventListener('keydown', window._mosiChoiceKeyHandler);
-            window.removeEventListener('touchstart', window._mosiChoiceTouchStart);
-            window.removeEventListener('touchmove', window._mosiChoiceTouchMove);
-            window.removeEventListener('touchend', window._mosiChoiceTouchEnd);
-            window.removeEventListener('mousedown', window._mosiChoiceTouchStart);
-            window.removeEventListener('mousemove', window._mosiChoiceTouchMove);
-            window.removeEventListener('mouseup', window._mosiChoiceTouchEnd);
+            // 使用已存在的 canvases 變數，避免重複宣告
+            let canvasesForCleanup = document.querySelectorAll('canvas');
+            let textCanvasForCleanup = canvasesForCleanup[1];
+            if (textCanvasForCleanup) {
+                textCanvasForCleanup.removeEventListener('mousedown', window._mosiChoiceMouseDown);
+                textCanvasForCleanup.removeEventListener('mousemove', window._mosiChoiceMouseMove);
+                textCanvasForCleanup.removeEventListener('mouseup', window._mosiChoiceMouseUp);
+                textCanvasForCleanup.removeEventListener('touchstart', window._mosiChoiceTouchStart);
+                textCanvasForCleanup.removeEventListener('touchmove', window._mosiChoiceTouchMove);
+                textCanvasForCleanup.removeEventListener('touchend', window._mosiChoiceTouchEnd);
+            }
+            // 清理 timeout（如果存在）
+            if (window._mosiChoiceTouchHandledTimeout) {
+                clearTimeout(window._mosiChoiceTouchHandledTimeout);
+                window._mosiChoiceTouchHandledTimeout = null;
+            }
 
-            let startX, startY, moved = false;
             window._mosiChoiceKeyHandler = function(e) {
                 if (!window._mosiChoiceActive || !window._mosiChoiceCanInteract) return;
                 let len = choiceList.length;
@@ -332,45 +354,80 @@ return {
                 }
                 if (window.game && typeof window.game.update === 'function') window.game.update();
             };
-            // === Touch 狀態 ===
-            let startX_touch = 0;
-            let startY_touch = 0;
-            let endX_touch = 0;
-            let endY_touch = 0;
-            // === Mouse 狀態 ===
-            let startX_mouse, startY_mouse, moved_mouse = false;
-            let mouseIsDown = false;
+            // === Touch 狀態 ===（使用 window 儲存，避免重複宣告）
+            if (typeof window._mosiChoiceTouchStartX === 'undefined') window._mosiChoiceTouchStartX = 0;
+            if (typeof window._mosiChoiceTouchStartY === 'undefined') window._mosiChoiceTouchStartY = 0;
+            if (typeof window._mosiChoiceTouchEndX === 'undefined') window._mosiChoiceTouchEndX = 0;
+            if (typeof window._mosiChoiceTouchEndY === 'undefined') window._mosiChoiceTouchEndY = 0;
+            if (typeof window._mosiChoiceTouchMoved === 'undefined') window._mosiChoiceTouchMoved = false;
+            if (typeof window._mosiChoiceTouchStartTime === 'undefined') window._mosiChoiceTouchStartTime = 0;
+            // === Mouse 狀態 ===（使用 window 儲存）
+            if (typeof window._mosiChoiceMouseStartX === 'undefined') window._mosiChoiceMouseStartX = 0;
+            if (typeof window._mosiChoiceMouseStartY === 'undefined') window._mosiChoiceMouseStartY = 0;
+            if (typeof window._mosiChoiceMouseMoved === 'undefined') window._mosiChoiceMouseMoved = false;
+            if (typeof window._mosiChoiceMouseIsDown === 'undefined') window._mosiChoiceMouseIsDown = false;
+            // 新增：標記是否剛處理過 touch 事件，避免在手機上重複觸發（使用 window 儲存）
+            if (typeof window._mosiChoiceJustHandledTouch === 'undefined') window._mosiChoiceJustHandledTouch = false;
+            if (typeof window._mosiChoiceTouchHandledTimeout === 'undefined') window._mosiChoiceTouchHandledTimeout = null;
             // === Touch 事件 ===
             window._mosiChoiceTouchStart = function(e) {
                 if (!window._mosiChoiceActive || !window._mosiChoiceCanInteract) return;
-                if (!e.touches) return;
-                e.preventDefault(); // 新增：防止外部頁面滾動
+                if (!e.touches || e.touches.length === 0) return;
+                e.preventDefault(); // 防止外部頁面滾動
                 window._mosiForceFullRender = true;
                 let pointer = e.touches[0];
-                startX_touch = pointer.clientX;
-                startY_touch = pointer.clientY;
-                endX_touch = pointer.clientX;
-                endY_touch = pointer.clientY; // Initialize endY_touch
-                moved_touch = false; // 這裡重設
+                window._mosiChoiceTouchStartX = pointer.clientX;
+                window._mosiChoiceTouchStartY = pointer.clientY;
+                window._mosiChoiceTouchEndX = pointer.clientX;
+                window._mosiChoiceTouchEndY = pointer.clientY;
+                window._mosiChoiceTouchMoved = false;
+                window._mosiChoiceTouchStartTime = Date.now(); // 記錄開始時間
                 if (window.game && typeof window.game.update === 'function') window.game.update();
             };
             window._mosiChoiceTouchMove = function(e) {
                 if (!window._mosiChoiceActive || !window._mosiChoiceCanInteract) return;
-                if (!e.touches) return;
+                if (!e.touches || e.touches.length === 0) return;
                 e.preventDefault();
                 let pointer = e.touches[0];
-                endX_touch = pointer.clientX;
-                endY_touch = pointer.clientY;
+                let newX = pointer.clientX;
+                let newY = pointer.clientY;
+                // 如果移動距離超過閾值，標記為已移動
+                if (Math.abs(newX - window._mosiChoiceTouchStartX) > 5 || Math.abs(newY - window._mosiChoiceTouchStartY) > 5) {
+                    window._mosiChoiceTouchMoved = true;
+                }
+                window._mosiChoiceTouchEndX = newX;
+                window._mosiChoiceTouchEndY = newY;
             };
             window._mosiChoiceTouchEnd = function(e) {
                 if (!window._mosiChoiceActive || !window._mosiChoiceCanInteract) return;
-                if (!e.changedTouches) return;
-                e.preventDefault(); // 新增：防止外部頁面滾動
+                if (!e.changedTouches || e.changedTouches.length === 0) return;
+                e.preventDefault(); // 防止外部頁面滾動
                 window._mosiForceFullRender = false;
-                let dx = endX_touch - startX_touch;
-                let dy = endY_touch - startY_touch;
+                
+                // 使用 changedTouches 獲取最終座標（修正：確保獲取正確的結束座標）
+                let endPointer = e.changedTouches[0];
+                let finalX = endPointer.clientX;
+                let finalY = endPointer.clientY;
+                
+                let dx = finalX - window._mosiChoiceTouchStartX;
+                let dy = finalY - window._mosiChoiceTouchStartY;
                 let len = choiceList.length;
-                if (dx > 30 && dx > Math.abs(dy) * 2) {
+                let touchDuration = Date.now() - window._mosiChoiceTouchStartTime;
+                
+                // 判斷是否為點擊（移動距離小且時間短）
+                let isClick = !window._mosiChoiceTouchMoved && Math.abs(dx) < 10 && Math.abs(dy) < 10 && touchDuration < 300;
+                
+                // 標記剛處理過 touch 事件，防止後續 mouse 事件重複觸發
+                window._mosiChoiceJustHandledTouch = true;
+                if (window._mosiChoiceTouchHandledTimeout) clearTimeout(window._mosiChoiceTouchHandledTimeout);
+                window._mosiChoiceTouchHandledTimeout = setTimeout(() => {
+                    window._mosiChoiceJustHandledTouch = false;
+                }, 300); // 300ms 後重置標記
+                
+                if (isClick) {
+                    // 直接點擊確認選擇
+                    window._mosiChoiceKeyHandler({key: 'ArrowRight'});
+                } else if (dx > 30 && dx > Math.abs(dy) * 2) {
                     // 右滑確認
                     window._mosiChoiceKeyHandler({key: 'ArrowRight'});
                 } else if (Math.abs(dy) > 20) {
@@ -383,53 +440,59 @@ return {
                     }
                     if (window.game && typeof window.game.update === 'function') window.game.update();
                 }
-                moved_touch = false; // 這裡重設
+                window._mosiChoiceTouchMoved = false;
             };
             // === Mouse 事件 ===
             window._mosiChoiceMouseDown = function(e) {
+                // 如果是 touch 事件觸發的 mouse 事件，忽略它
+                if (window._mosiChoiceJustHandledTouch) return;
                 e.stopPropagation();
                 if (!window._mosiChoiceActive || !window._mosiChoiceCanInteract) return;
                 if (e.button !== 0) return; // 只處理左鍵
                 window._mosiForceFullRender = true;
-                startX_mouse = e.clientX;
-                startY_mouse = e.clientY;
-                moved_mouse = false;
-                mouseIsDown = true; // 新增
+                window._mosiChoiceMouseStartX = e.clientX;
+                window._mosiChoiceMouseStartY = e.clientY;
+                window._mosiChoiceMouseMoved = false;
+                window._mosiChoiceMouseIsDown = true;
                 if (window.game && typeof window.game.update === 'function') window.game.update();
             };
             window._mosiChoiceMouseMove = function(e) {
+                // 如果是 touch 事件觸發的 mouse 事件，忽略它
+                if (window._mosiChoiceJustHandledTouch) return;
                 e.stopPropagation();
                 if (!window._mosiChoiceActive || !window._mosiChoiceCanInteract) return;
-                if (!mouseIsDown) return; // 新增：只有按下時才切換
-                if (typeof startY_mouse !== 'number') return;
-                let dy = e.clientY - startY_mouse;
+                if (!window._mosiChoiceMouseIsDown) return; // 只有按下時才切換
+                if (typeof window._mosiChoiceMouseStartY !== 'number') return;
+                let dy = e.clientY - window._mosiChoiceMouseStartY;
                 let len = choiceList.length;
-                if (Math.abs(dy) > 20 && !moved_mouse) {
+                if (Math.abs(dy) > 20 && !window._mosiChoiceMouseMoved) {
                     if (dy > 0) {
                         window._mosiChoiceIndex = (window._mosiChoiceIndex + 1) % len;
                     } else {
                         window._mosiChoiceIndex = (window._mosiChoiceIndex + len - 1) % len;
                     }
-                    moved_mouse = true;
+                    window._mosiChoiceMouseMoved = true;
                     if (window.game && typeof window.game.update === 'function') window.game.update();
                 }
             };
             window._mosiChoiceMouseUp = function(e) {
+                // 如果是 touch 事件觸發的 mouse 事件，忽略它
+                if (window._mosiChoiceJustHandledTouch) return;
                 e.stopPropagation();
                 if (!window._mosiChoiceActive || !window._mosiChoiceCanInteract) return;
                 if (e.button !== 0) return;
                 window._mosiForceFullRender = false;
-                let dx = e.clientX - startX_mouse;
+                let dx = e.clientX - window._mosiChoiceMouseStartX;
                 if (dx > 30) {
                     window._mosiChoiceKeyHandler({key: 'ArrowRight'});
                 }
                 if (window.game && typeof window.game.update === 'function') window.game.update();
-                moved_mouse = false;
-                mouseIsDown = false; // 新增
+                window._mosiChoiceMouseMoved = false;
+                window._mosiChoiceMouseIsDown = false;
             };
             // 只在 textCanvas 上註冊滑鼠事件
-            let canvases = document.querySelectorAll('canvas');
-            let textCanvas = canvases[1]; // 對話層 canvas
+            let canvasesForRegister = document.querySelectorAll('canvas');
+            let textCanvas = canvasesForRegister[1]; // 對話層 canvas
             if (textCanvas) {
                 textCanvas.style.pointerEvents = '';
                 if (textCanvas.focus) textCanvas.focus(); // 新增：自動 focus textCanvas
@@ -449,7 +512,8 @@ return {
             // window.addEventListener('touchmove', window._mosiChoiceTouchMove, { passive: false });
             // window.addEventListener('touchend', window._mosiChoiceTouchEnd, { passive: false });
             // 動畫沒跑完時，return -1
-            if ((typeof maxChars === 'number' ? maxChars : -1) < allChars) {
+            // 修正：當 maxChars === -1 時（快速跳過），應該允許選項顯示
+            if (typeof maxChars === 'number' && maxChars >= 0 && maxChars < allChars) {
                 return -1;
             }
             // 不繼續往下，等選擇後再繼續
@@ -962,7 +1026,7 @@ return {
             let indicatorX = bgX + bgWidth - fw - indicatorWidth + positionOffset
             let indicatorY = bgY + bgHeight - fh - indicatorHeight + positionOffset
             var patchedIndicator = indicator.map(val => val >= palette.colorList.length ? -1 : val)
-            Text.drawSkinBlock(context, patchedIndicator, indicatorX, indicatorY, indicatorWidth, indicatorHeight, palette, world.isTransparent);
+            Text.drawSkinBlock(context, patchedIndicator, indicatorX, indicatorY, indicatorWidth, indicatorHeight, palette, skin.isTransparent);
             return
         }
         // 預設分支

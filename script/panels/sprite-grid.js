@@ -10,6 +10,60 @@ class SpriteGrid extends Component {
             hoverY: -1
         }
 
+        // 新增 flood fill 方法
+        this.floodFill = (startX, startY) => {
+            const { width, height, frame, currentColorIndex = 1, drawPixel } = this.props
+            if (!frame || !Array.isArray(frame)) return
+            if (startX < 0 || startX >= width || startY < 0 || startY >= height) return
+            
+            const targetColor = frame[width * startY + startX]
+            const fillColor = currentColorIndex
+            
+            // 如果目標顏色等於選取顏色，則消除為0（與畫筆行為一致）
+            // 否則填充為選取顏色
+            const newColor = (targetColor === fillColor) ? 0 : fillColor
+            
+            const visited = new Array(width * height).fill(false)
+            const queue = []
+            queue.push({ x: startX, y: startY })
+            visited[width * startY + startX] = true
+            let newFrame = frame.slice()
+            
+            // 四方向擴展方向數組
+            const directions = [
+                { dx: 1, dy: 0 },
+                { dx: -1, dy: 0 },
+                { dx: 0, dy: 1 },
+                { dx: 0, dy: -1 }
+            ]
+            
+            while (queue.length > 0) {
+                const { x, y } = queue.shift()
+                const idx = width * y + x
+                if (newFrame[idx] === targetColor) {
+                    newFrame[idx] = newColor
+                    // 四方向擴展
+                    for (let i = 0; i < directions.length; i++) {
+                        const { dx, dy } = directions[i]
+                        const nx = x + dx, ny = y + dy
+                        if (
+                            nx >= 0 && nx < width &&
+                            ny >= 0 && ny < height &&
+                            !visited[width * ny + nx] &&
+                            newFrame[width * ny + nx] === targetColor
+                        ) {
+                            queue.push({ x: nx, y: ny })
+                            visited[width * ny + nx] = true
+                        }
+                    }
+                }
+            }
+            // 一次性批量更新
+            if (typeof drawPixel === 'function') {
+                drawPixel(-1, newFrame)
+            }
+        }
+
         this.pointerStart = (e) => {
             e.preventDefault()
             this.pointerIsDown = true
@@ -22,11 +76,22 @@ class SpriteGrid extends Component {
             let y = Math.floor(relY / pixelSize)
             this.lastDrawX = x
             this.lastDrawY = y
-            this.drawPixelEvent(e, true)
+            
+            // 根據工具決定行為
+            if (this.props.currentTool === 'bucket') {
+                this.floodFill(x, y)
+            } else {
+                this.drawPixelEvent(e, true)
+            }
         }
 
         this.pointerMove = (e) => {
             if (!this.pointerIsDown) {
+                this.updateHover(e)
+                return
+            }
+            // 油漆桶是一次性操作，移動時不執行任何操作
+            if (this.props.currentTool === 'bucket') {
                 this.updateHover(e)
                 return
             }

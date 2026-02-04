@@ -805,9 +805,16 @@ class VariableSettingOverlay extends Component {
     }
     componentWillMount() {
         const { varName, variable } = this.props
+        // 如果 type 是 "boolean" 或 value 是 "true"/"false"，視為布林值變量（但實際保存時 type 應該是 "string"）
+        let varType = variable.type
+        if (varType === 'boolean' || (varType === 'string' && (variable.value === 'true' || variable.value === 'false'))) {
+            varType = 'boolean' // UI 顯示用，但保存時會轉為 "string"
+        } else {
+            varType = varType || (typeof variable.value === 'boolean' ? 'boolean' : 'number')
+        }
         this.setState({
             name: varName,
-            type: variable.type || (typeof variable.value === 'boolean' ? 'boolean' : 'number')
+            type: varType
         })
     }
     onNameChange(e) {
@@ -828,7 +835,8 @@ class VariableSettingOverlay extends Component {
     }
     onTypeToggle() {
         let newType = this.state.type === 'number' ? 'boolean' : 'number'
-        let newValue = newType === 'number' ? 0 : true
+        // 布林值應該保存為字串 "true" 或 "false"，這樣 {var} 表達式才能正確返回，{if} 才能正確判斷
+        let newValue = newType === 'number' ? 0 : 'true'
         this.setState({ type: newType }, () => {
             this.props.onSave && this.props.onSave(this.props.varName, this.state.name, newType, newValue, false)
         })

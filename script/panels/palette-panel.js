@@ -125,7 +125,7 @@ class PalettePanel extends Component {
             })
         })
 
-        let addColorButton = palette.colorList.length >= 8 ? null :
+        let addColorButton = palette.colorList.length >= 10 ? null :
             iconButton({
                 title: 'add color',
                 onclick: () => {
