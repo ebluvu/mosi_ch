@@ -15,7 +15,6 @@ class RoomGrid extends Component {
         this.isDrawing = true
 
         this.pointerStart = (e) => {
-            if (this.props.showDialogSpriteOverlay) return
             e.preventDefault()
             this.pointerIsDown = true
             let startOfDraw = true
@@ -34,7 +33,6 @@ class RoomGrid extends Component {
             if (this.pointerIsDown) {
                 e.preventDefault()
                 this.pointerIsDown = false
-                this.pointerDraw(e)
             }
         }
 
@@ -104,13 +102,7 @@ class RoomGrid extends Component {
         }
 
         this.pointerDraw = (e, startOfDraw) => {
-            let pointer;
-            if (e.type === 'touchend' || e.type === 'touchcancel') {
-                pointer = e.changedTouches[0];
-            } else {
-                pointer = e.touches ? e.touches[0] : e;
-            }
-            if (!pointer) return; // Add a guard in case pointer is undefined
+            let pointer = e.touches ? e.touches[0] : e
             let { roomWidth, roomHeight } = this.props
             let rect = this.node.getBoundingClientRect()
             let tileWidth = rect.width / roomWidth
@@ -173,7 +165,7 @@ class RoomGrid extends Component {
                 let x = Math.floor(i % width)
                 let y = Math.floor(i / width)
                 if (paletteIndex === 0 && isTransparent) return
-                context.fillStyle = colorList[Math.min(paletteIndex, colorList.length - 1)] || '#000000'
+                context.fillStyle = colorList[paletteIndex] || '#000000'
                 context.fillRect(x, y, 1, 1)
             })
         }
@@ -396,8 +388,7 @@ class RoomGrid extends Component {
                                 cursor: hasDialog ? 'pointer' : 'default',
                                 zIndex: 10
                             },
-                            onclick: hasDialog && typeof restProps.onDialogSpriteSelect === 'function' ? (evt) => { evt.preventDefault(); restProps.onDialogSpriteSelect(dialogSpriteIndex); } : undefined,
-                            ontouchend: hasDialog && typeof restProps.onDialogSpriteSelect === 'function' ? (evt) => { evt.preventDefault(); restProps.onDialogSpriteSelect(dialogSpriteIndex); } : undefined
+                            onclick: hasDialog && typeof restProps.onDialogSpriteSelect === 'function' ? () => restProps.onDialogSpriteSelect(dialogSpriteIndex) : undefined
                         })
                     )
                 }

@@ -62,8 +62,7 @@ return class {
             if (this.currentPicture && this.currentPicture !== pictureName) {
                 let prevGraphic = this.world.graphicList && this.world.graphicList.find(g => g.name === this.currentPicture && g.type === 'picture')
                 if (prevGraphic && prevGraphic.scriptList && prevGraphic.scriptList['on-hide']) {
-                    let prevIndex = this.world.graphicList.findIndex(g => g.name === this.currentPicture && g.type === 'picture')
-                    this.runScript(prevGraphic.scriptList, 'on-hide', { graphicIndex: prevIndex })
+                    this.runScript(prevGraphic.scriptList, 'on-hide')
                 }
             }
             // set new value
@@ -76,8 +75,7 @@ return class {
             if (pictureName) {
                 let newGraphic = this.world.graphicList && this.world.graphicList.find(g => g.name === pictureName && g.type === 'picture')
                 if (newGraphic && newGraphic.scriptList && newGraphic.scriptList['on-show']) {
-                    let newIndex = this.world.graphicList.findIndex(g => g.name === pictureName && g.type === 'picture')
-                    this.runScript(newGraphic.scriptList, 'on-show', { graphicIndex: newIndex })
+                    this.runScript(newGraphic.scriptList, 'on-show')
                     return // 直接 return，覆蓋主流程
                 }
             } else {
@@ -87,18 +85,6 @@ return class {
                 this.updateCache && this.updateCache()
             }
         }
-
-        // === 主循環唯一 flag ===
-        this._rafId = null;
-        this._isFading = false;
-        
-        // === 搖動效果狀態 ===
-        this._isShaking = false;
-        this._shakeStartTime = 0;
-        this._shakeDuration = 0;
-        this._shakeIntensity = 0;
-        this._shakeOffsetX = 0;
-        this._shakeOffsetY = 0;
 
         this.begin = () => {
             // 設定文字比例
@@ -151,12 +137,8 @@ return class {
             this.keyCodes = []
             this.addEventListeners()
 
-            // 立即同步渲染一次，確保畫面立刻出現
-            this.update(0); // 不設 flag，直接同步執行一次
-            // 然後啟動主循環（用 flag 控制唯一）
-            if (!this._rafId) {
-                this._rafId = requestAnimationFrame(this.update);
-            }
+            // kick off update loop
+            this.update(0)
 
             this.followerTrail = [];
             this.followerList = [];
@@ -170,57 +152,12 @@ return class {
             this.removeEventListeners()
 
             // stop animation loop
-            if (this._rafId) {
-                cancelAnimationFrame(this._rafId);
-                this._rafId = null;
-            }
-        }
-
-        // === 搖動效果方法 ===
-        this.shakeScreen = (duration = 500, intensity = 5) => {
-            this._isShaking = true;
-            this._shakeStartTime = performance.now();
-            this._shakeDuration = duration;
-            this._shakeIntensity = intensity;
-            this._shakeOffsetX = 0;
-            this._shakeOffsetY = 0;
-        }
-
-        this.updateShake = (timestamp) => {
-            if (!this._isShaking) return;
-            
-            const elapsed = timestamp - this._shakeStartTime;
-            const progress = elapsed / this._shakeDuration;
-            
-            if (progress >= 1) {
-                // 搖動結束
-                this._isShaking = false;
-                this._shakeOffsetX = 0;
-                this._shakeOffsetY = 0;
-                return;
-            }
-            
-            // 計算衰減的強度
-            const decay = 1 - progress;
-            const currentIntensity = this._shakeIntensity * decay;
-            
-            // 生成隨機搖動偏移
-            this._shakeOffsetX = (Math.random() - 0.5) * currentIntensity;
-            this._shakeOffsetY = (Math.random() - 0.5) * currentIntensity;
+            window.cancelAnimationFrame(this.animationRequest)
         }
 
         this.update = (timestamp) => {
-            // 動畫期間只畫動畫，不執行遊戲邏輯
-            if (this._isFading) {
-                // 可以選擇只畫動畫層，或直接 return，視你的需求
-                this._rafId = requestAnimationFrame(this.update);
-                return;
-            }
             let dt = timestamp - this.lastTimestamp
             this.lastTimestamp = timestamp
-
-            // 更新搖動效果
-            this.updateShake(timestamp)
 
             // progress frames
             this.timeToNextFrame -= dt
@@ -241,12 +178,6 @@ return class {
             let tileList = this.currentRoom.tileList
             let palette = this.world.paletteList[this.currentPaletteIndex]
             let colorList = palette.colorList
-
-            // 應用搖動偏移到畫布
-            if (this._isShaking) {
-                this.context.save()
-                this.context.translate(this._shakeOffsetX, this._shakeOffsetY)
-            }
 
             // draw background
             let canvasWidth = this.world.spriteWidth * this.world.roomWidth
@@ -327,11 +258,6 @@ return class {
                 }
             }
 
-            // 恢復畫布變換
-            if (this._isShaking) {
-                this.context.restore()
-            }
-
             // draw dialog
             this.updateDialog(timestamp)
 
@@ -373,11 +299,10 @@ return class {
             }
 
             // see you next frame!
-            this._rafId = requestAnimationFrame(this.update)
+            this.animationRequest = window.requestAnimationFrame(this.update)
         }
 
         this.updateAvatar = () => {
-            if (this._isFading) return;
             // 若插圖顯示且無對話，阻止移動等遊戲邏輯
             if (this.currentPicture && (!this.dialogNodes || this.dialogNodes.length === 0)) {
                 return
@@ -497,7 +422,6 @@ return class {
         }
 
         this.moveAvatar = (roomIndex, x, y) => {
-            if (this._isFading) return;
             let stopMoving = false
 
             // reset next positions
@@ -596,11 +520,7 @@ return class {
 
                 // run the sprite's script (if player's not already on this tile)
                 if (this.avatarX !== x || this.avatarY !== y) {
-                    if (tile._pauseLoopWalk) {
-                        tile._pauseLoopWalk();
-                        this._lastPausedLoopTile = tile;
-                    }
-                    this.runScript(sprite.scriptList, 'on-push', { sprite, tile, roomIndex });
+                    this.runScript(sprite.scriptList, 'on-push', { sprite, tile, roomIndex })
                 }
             })
 
@@ -628,22 +548,15 @@ return class {
             return tileIsClear
         }
 
-        this.startDialog = (dialogNodes, append = false) => {
-            if (append && this.dialogNodes && this.dialogNodes.length > 0) {
-                // 追加模式：將新對話框追加到現有對話框序列
-                this.dialogNodes = this.dialogNodes.concat(dialogNodes)
-            } else {
-                // 覆蓋模式：替換現有對話框
-                this.dialogNodes = dialogNodes
-                this.pageStartTimestamp = null
-                this.pageIsComplete = false
-                window.textPosition = null
-            }
+        this.startDialog = (dialogNodes) => {
+            this.dialogNodes = dialogNodes
+            this.pageStartTimestamp = null
+            this.pageIsComplete = false
+            window.textPosition = null
             if (this.onDialogChange) this.onDialogChange(this.dialogNodes)
         }
 
         this.progressDialog = () => {
-            if (window._mosiLockInput) return;
             if (this.pageIsComplete && this.nextPageTimer >= this.nextPageDelay) {
                 this.pageStartTimestamp = null
                 this.pageIsComplete = false
@@ -656,11 +569,6 @@ return class {
                     // 清除scriptInfo
                     this.lastDialogScriptInfo = null
                     if (this.onDialogChange) this.onDialogChange([], null)
-                    // === loop-walk-sprite: 對話結束時恢復循環 ===
-                    if (this._lastPausedLoopTile && this._lastPausedLoopTile._resumeLoopWalk) {
-                        this._lastPausedLoopTile._resumeLoopWalk();
-                        this._lastPausedLoopTile = null;
-                    }
                 }
             } else {
                 this.pageIsComplete = true
@@ -669,12 +577,6 @@ return class {
         }
 
         this.updateDialog = (timestamp) => {
-            // 優先判斷整體透明度
-            let overallAlpha = 1;
-            if (typeof window !== 'undefined' && typeof window._mosiDialogAlpha !== 'undefined') {
-                overallAlpha = window._mosiDialogAlpha;
-            }
-            this.textContext.globalAlpha = overallAlpha;
             
             if (this.dialogNodes.length === 0) return
 
@@ -707,12 +609,6 @@ return class {
                 }
             }
             // =================================================
-
-            // 取得背景透明度（只有在整體 alpha 為 1 時才作用）
-            let bgAlpha = 1;
-            if (overallAlpha === 1 && typeof window !== 'undefined' && typeof window._mosiDialogBgAlpha !== 'undefined') {
-                bgAlpha = window._mosiDialogBgAlpha;
-            }
 
             // calculate number of characters to draw
             if (!this.pageStartTimestamp) this.pageStartTimestamp = timestamp
@@ -759,8 +655,7 @@ return class {
                 bgColor,
                 this.world,
                 this.world.textboxSkin ? skinPalette : mainPalette, // PATCH: 皮膚分支用動態 palette，原生用 mainPalette
-                actualLines,
-                bgAlpha // 新增：傳遞背景透明度
+                actualLines
             )
 
             // draw continue indicator
@@ -773,11 +668,7 @@ return class {
                     this.nextPageTimer += Math.floor(dt / this.dialogRate)
                     if (this.nextPageTimer >= this.nextPageDelay) {
                         if (!window._mosiChoiceActive) {
-                            Text.drawContinueIndicator(
-                                context, fontData, bgX, bgY, bgWidth, bgHeight,
-                                textColor, this.world,
-                                this.world.textboxSkin ? skinPalette : mainPalette
-                            );
+                            Text.drawContinueIndicator(context, fontData, bgX, bgY, bgWidth, bgHeight, textColor, this.world, mainPalette);
                         }
                     }
                 }
@@ -848,17 +739,7 @@ return class {
             }
 
             let world = this.world;
-            // 優先使用當前房間的動態調色盤，否則使用主調色盤
-            let palette = null;
-            if (world && world.paletteList) {
-                let currentRoom = this.currentRoom || world.roomList[this.currentRoomIndex];
-                if (currentRoom && currentRoom.paletteName) {
-                    palette = world.paletteList.find(p => p.name === currentRoom.paletteName);
-                }
-                if (!palette && typeof world.mainPaletteIndex === 'number') {
-                    palette = world.paletteList[world.mainPaletteIndex];
-                }
-            }
+            let palette = world && world.paletteList ? world.paletteList[world.mainPaletteIndex] : null;
             let nextPageNodeIndex = Text.drawNode({
                 nodes: this.dialogNodes,
                 canvas,
@@ -926,46 +807,8 @@ return class {
             return roomIndex
         }
 
-        this.drawRoomToContext = (room, ctx, colorList, roomIndex, avatarRoomIndex, avatarX, avatarY, avatarSprite) => {
-            let tileList = room.tileList
-            let w = this.world.spriteWidth * this.world.roomWidth
-            let h = this.world.spriteHeight * this.world.roomHeight
-            ctx.fillStyle = colorList[0]
-            ctx.fillRect(0, 0, w, h)
-            tileList.forEach(tile => {
-                let { spriteName, x, y } = tile
-                let sprite = this.world.spriteList.find(sprite => sprite.name === spriteName)
-                if (sprite && !sprite.isAvatar) {
-                    let xOffset = x * sprite.width
-                    let yOffset = y * sprite.height
-                    let frameList = sprite.frameList
-                    let frameData = frameList[0]
-                    let tempCanvas = document.createElement('canvas')
-                    tempCanvas.width = sprite.width
-                    tempCanvas.height = sprite.height
-                    let tempCtx = tempCanvas.getContext('2d')
-                    this.drawFrame(frameData, sprite.width, tempCtx, colorList, sprite.isTransparent, sprite.colorIndex)
-                    ctx.drawImage(tempCanvas, xOffset, yOffset)
-                }
-            })
-            // 畫主角（只在 avatarRoomIndex === roomIndex 時畫）
-            if (avatarRoomIndex === roomIndex && avatarSprite) {
-                let sprite = avatarSprite
-                let xOffset = avatarX * sprite.width
-                let yOffset = avatarY * sprite.height
-                let frameList = sprite.frameList
-                let frameData = frameList[0]
-                let tempCanvas = document.createElement('canvas')
-                tempCanvas.width = sprite.width
-                tempCanvas.height = sprite.height
-                let tempCtx = tempCanvas.getContext('2d')
-                this.drawFrame(frameData, sprite.width, tempCtx, colorList, sprite.isTransparent, sprite.colorIndex)
-                ctx.drawImage(tempCanvas, xOffset, yOffset)
-            }
-        }
-
         this.moveRooms = (roomIndex, startOfGame) => {
-            if (this._isFading) return;
+            // 防護檢查：確保 world.roomList 存在且有效
             if (!this.world || !this.world.roomList || !Array.isArray(this.world.roomList) || this.world.roomList.length === 0) {
                 console.warn('world.roomList 不存在或無效')
                 return
@@ -979,87 +822,12 @@ return class {
             
             // ignore if player is already in this room
             if (this.currentRoomIndex === roomIndex) return
-            
-            // 保存舊房間索引和房間物件，用於執行 on-exit
-            let oldRoomIndex = this.currentRoomIndex
-            let oldRoom = this.currentRoom
-            let oldRoomScript = oldRoom && oldRoom.scriptList && oldRoom.scriptList['on-exit']
-            
-            // 先切換房間（房間外觀改變）
-            if (!startOfGame && oldRoom) {
-                let script = oldRoomScript
-                // 先判斷 move
-                let matchMove = script && script.match(/\{set-effect move\}/)
-                if (matchMove) {
-                    this._isFading = true
-                    this.slideTransition(oldRoomIndex, roomIndex, undefined, () => {
-                        this._isFading = false
-                        // 房間切換完成後，執行上一個房間的 on-exit，然後執行新房間的 on-enter
-                        this._moveRoomsAfterFade(roomIndex, startOfGame, { 
-                            oldRoomIndex: oldRoomIndex,
-                            oldRoomScript: oldRoomScript
-                        })
-                    }, 400)
-                    return
-                }
-                // 再判斷 fade
-                let matchFade = script && script.match(/\{set-effect fade(?: ([0-9]+))?\}/)
-                if (matchFade && this.fade) {
-                    let colorIndex = matchFade[1] ? parseInt(matchFade[1]) : 0
-                    let palette = this.world.paletteList[this.currentPaletteIndex]
-                    let colorList = palette ? palette.colorList : ['#000']
-                    let color = colorList[colorIndex] || '#000'
-                    this._isFading = true
-                    this.fade(color, 400, 'out').then(() => {
-                        this._isFading = false
-                        // 房間切換完成後，執行上一個房間的 on-exit，然後執行新房間的 on-enter
-                        this._moveRoomsAfterFade(roomIndex, startOfGame, { 
-                            fadeIn: { color, duration: 400 },
-                            oldRoomIndex: oldRoomIndex,
-                            oldRoomScript: oldRoomScript
-                        })
-                    })
-                    return
-                }
-            }
-            // 沒有 set-effect，直接切換房間（即使沒有 oldRoom 也要傳遞 oldRoomIndex）
-            this._moveRoomsAfterFade(roomIndex, startOfGame, { 
-                oldRoomIndex: oldRoomIndex,
-                oldRoomScript: oldRoomScript
-            })
-        }
 
-
-        this._waitForDialogThenMoveRooms = (roomIndex, startOfGame, opts) => {
-            // 先檢查對話框是否已經完成（可能 on-exit 沒有創建對話框，或者對話框立即完成）
-            if (!this.dialogNodes || this.dialogNodes.length === 0) {
-                // 對話框已完成或不存在，直接執行房間切換
-                this._moveRoomsAfterFade(roomIndex, startOfGame, opts)
-                return
+            // run exit script for old room
+            if (!startOfGame && this.currentRoom) {
+                this.runScript(this.currentRoom.scriptList, 'on-exit')
             }
-            
-            // 保存原始的回調函數
-            let originalOnDialogChange = this.onDialogChange
-            let hasMoved = false // 防止重複執行
-            
-            // 設置一個臨時回調，監聽對話框完成
-            this.onDialogChange = (dialogNodes, scriptInfo) => {
-                // 調用原始回調
-                if (originalOnDialogChange) {
-                    originalOnDialogChange(dialogNodes, scriptInfo)
-                }
-                // 如果對話框已完成（dialogNodes 為空或 null），執行房間切換
-                if (!hasMoved && (!dialogNodes || dialogNodes.length === 0)) {
-                    hasMoved = true
-                    // 恢復原始回調
-                    this.onDialogChange = originalOnDialogChange
-                    // 執行房間切換
-                    this._moveRoomsAfterFade(roomIndex, startOfGame, opts)
-                }
-            }
-        }
 
-        this._moveRoomsAfterFade = (roomIndex, startOfGame, opts) => {
             // update room references
             this.currentRoomIndex = roomIndex
             this.currentRoom = this.world.roomList[this.currentRoomIndex]
@@ -1082,7 +850,14 @@ return class {
                     });
                 }
             }
-            if (!this.currentRoom) { console.warn('currentRoom 不存在'); return }
+            
+            // 防護檢查：確保 currentRoom 存在
+            if (!this.currentRoom) {
+                console.warn('currentRoom 不存在')
+                return
+            }
+
+            // update color palette
             this.currentPaletteIndex = this.world.paletteList.findIndex(p => p.name === this.currentRoom.paletteName)
 
             // play new music
@@ -1091,65 +866,9 @@ return class {
             // cache new sprites
             this.updateCache()
 
-            // 如果有 fadeIn 參數，這裡淡入
-            if (opts && opts.fadeIn && this.fade) {
-                this.fade(opts.fadeIn.color, opts.fadeIn.duration, 'in')
-            }
-
-            // 執行上一個房間的 on-exit（房間已經切換，但執行舊房間的腳本）
-            if (!startOfGame && opts && opts.oldRoomIndex !== undefined && opts.oldRoomIndex !== roomIndex) {
-                let oldRoom = this.world.roomList[opts.oldRoomIndex]
-                // 檢查 oldRoom 是否存在並嘗試執行 on-exit
-                if (oldRoom && oldRoom.scriptList) {
-                    // 記錄執行前的對話框狀態
-                    let dialogNodesBefore = this.dialogNodes ? this.dialogNodes.length : 0
-                    // 執行 on-exit 腳本（傳遞 oldRoomIndex 以便正確顯示房間名稱）
-                    let hadDialog = this.runScript(oldRoom.scriptList, 'on-exit', { roomIndex: opts.oldRoomIndex })
-                    // 檢查對話框是否有變化（即使 runScript 返回 false，也可能創建了新對話）
-                    let dialogNodesAfter = this.dialogNodes ? this.dialogNodes.length : 0
-                    let dialogChanged = dialogNodesAfter !== dialogNodesBefore || (this.lastDialogScriptInfo && this.lastDialogScriptInfo.eventName === 'on-exit')
-                    // 如果有對話框變化，等待完成後再執行 on-enter
-                    if (dialogChanged && dialogNodesAfter > 0) {
-                        this._waitForDialogThenRunOnEnter(roomIndex, startOfGame)
-                        return
-                    }
-                    // 如果沒有對話框，繼續執行 on-enter（不 return）
-                }
-            }
-
             // run enter script for new room
             if (!startOfGame) {
-                this.runScript(this.currentRoom.scriptList, 'on-enter', { roomIndex: this.currentRoomIndex })
-            }
-            // 不再呼叫主循環，由 moveRooms 呼叫
-        }
-
-        this._waitForDialogThenRunOnEnter = (roomIndex, startOfGame) => {
-            // 先檢查對話框是否已經完成
-            if (!this.dialogNodes || this.dialogNodes.length === 0) {
-                // 對話框已完成或不存在，直接執行 on-enter
-                this.runScript(this.currentRoom.scriptList, 'on-enter', { roomIndex: this.currentRoomIndex })
-                return
-            }
-            
-            // 保存原始的回調函數
-            let originalOnDialogChange = this.onDialogChange
-            let hasRun = false // 防止重複執行
-            
-            // 設置一個臨時回調，監聽對話框完成
-            this.onDialogChange = (dialogNodes, scriptInfo) => {
-                // 調用原始回調
-                if (originalOnDialogChange) {
-                    originalOnDialogChange(dialogNodes, scriptInfo)
-                }
-                // 如果對話框已完成（dialogNodes 為空或 null），執行 on-enter
-                if (!hasRun && (!dialogNodes || dialogNodes.length === 0)) {
-                    hasRun = true
-                    // 恢復原始回調
-                    this.onDialogChange = originalOnDialogChange
-                    // 執行 on-enter
-                    this.runScript(this.currentRoom.scriptList, 'on-enter', { roomIndex: this.currentRoomIndex })
-                }
+                this.runScript(this.currentRoom.scriptList, 'on-enter')
             }
         }
 
@@ -1172,9 +891,9 @@ return class {
             }
         }
 
-        this.runScript = (scriptList, scriptName, context, appendDialog = false) => {
+        this.runScript = (scriptList, scriptName, context) => {
             // ignore non-existent scripts
-            if (!scriptList || !scriptList[scriptName]) return false
+            if (!scriptList || !scriptList[scriptName]) return
 
             // get script
             let script = scriptList[scriptName]
@@ -1187,20 +906,8 @@ return class {
                 context: context
             }
 
-            // 記錄執行前的對話框狀態
-            let hadDialogBefore = this.dialogNodes && this.dialogNodes.length > 0
-
-            // 如果使用追加模式，在 context 中標記
-            if (appendDialog && context) {
-                context._appendDialog = true
-            }
-
             // run script
             Script.run(script, this, context)
-
-            // 檢查是否創建了新對話框
-            let hasDialogAfter = this.dialogNodes && this.dialogNodes.length > 0
-            return hasDialogAfter && (!hadDialogBefore || appendDialog)
         }
 
         this.nextFrames = () => {
@@ -1221,8 +928,8 @@ return class {
                 let y = Math.floor(i / width)
                 if (pixel === 0 && isTransparent) return
                 let color = isMono
-                    ? (pixel === 1 ? colorList[Math.min(colorIndex, colorList.length - 1)] : colorList[0])
-                    : (colorList[Math.min(pixel, colorList.length - 1)] || '#000');
+                    ? (pixel === 1 ? colorList[colorIndex] : colorList[0])
+                    : (colorList[pixel] || '#000')
                 context.fillStyle = color
                 context.fillRect(x, y, 1, 1)
             })
@@ -1287,7 +994,6 @@ return class {
         }
 
         this.drawAvatar = () => {
-            if (this._isFading) return;
             let { spriteWidth, spriteHeight } = this.world
             let name = this.avatar.name
             
@@ -1336,8 +1042,6 @@ return class {
         }
 
         this.keyDown = (e) => {
-            // 只有在非對話狀態下才鎖定玩家操作
-            if (window._mosiLockInput && (!this.dialogNodes || this.dialogNodes.length === 0)) return;
             if (e.key.startsWith('Arrow') || ['w', 'a', 's', 'd'].includes(e.key)) e.preventDefault() // prevent arrow keys from scrolling page
             if (e.repeat) return // ignore key repeats
             if (e.key === 'm') {
@@ -1361,13 +1065,11 @@ return class {
         }
 
         this.keyUp = (e) => {
-            if (window._mosiLockInput && (!this.dialogNodes || this.dialogNodes.length === 0)) return;
             this.keyCodes = this.keyCodes.filter(keyCode => keyCode !== e.key)
             if (this.keyCodes.length === 0) this.keyActive = false
         }
 
         this.pointerStart = (e) => {
-            if (window._mosiLockInput && (!this.dialogNodes || this.dialogNodes.length === 0)) return;
             if (window._mosiChoiceActive) return;
             e.preventDefault()
             this.canvas.focus()
@@ -1398,7 +1100,6 @@ return class {
         }
 
         this.pointerEnd = (e) => {
-            if (window._mosiLockInput && (!this.dialogNodes || this.dialogNodes.length === 0)) return;
             if (window._mosiChoiceActive) return;
             if (this.pointerIsDown) {
                 e.preventDefault();
@@ -1451,14 +1152,8 @@ return class {
         this.wrapper.appendChild(this.fadeOverlay)
 
         // === 新增：淡入淡出動畫函式 ===
-        // === 動畫防重複 flag ===
-        this._fadeTicking = false;
-        this._slidePicTicking = false;
-        this._slideTicking = false;
         this.fade = (color, duration = 400, direction = 'out') => {
             return new Promise(resolve => {
-                if (this._fadeTicking) return;
-                this._fadeTicking = true;
                 this.fadeOverlay.style.background = color
                 this.fadeOverlay.style.transition = ''
                 // 幀數變多，動畫更細膩
@@ -1479,166 +1174,12 @@ return class {
                         if (direction === 'in') {
                             this.fadeOverlay.style.background = ''
                         }
-                        this._fadeTicking = false;
                         resolve()
                     }
                 }
                 tick()
             })
         }
-
-        // === 新增：插圖滑動切換動畫 ===
-        this.slidePictureTransition = (fromPicName, toPicName, duration = 400, callback, direction) => {
-            if (this._slidePicTicking) return;
-            this._slidePicTicking = true;
-            let fromPic = this.world.graphicList.find(g => g.name === fromPicName && g.type === 'picture')
-            let toPic = this.world.graphicList.find(g => g.name === toPicName && g.type === 'picture')
-            if (!fromPic || !toPic) { this._slidePicTicking = false; callback && callback(); return }
-            let w = this.canvas.width
-            let h = this.canvas.height
-            let fromCanvas = document.createElement('canvas')
-            fromCanvas.width = w; fromCanvas.height = h
-            let fromCtx = fromCanvas.getContext('2d')
-            // 畫 fromPic
-            this.drawPictureToContext(fromPic, fromCtx, w, h)
-            let toCanvas = document.createElement('canvas')
-            toCanvas.width = w; toCanvas.height = h
-            let toCtx = toCanvas.getContext('2d')
-            // 畫 toPic
-            this.drawPictureToContext(toPic, toCtx, w, h)
-            let start = null
-            let animate = (timestamp) => {
-                if (!start) start = timestamp
-                let t = Math.min(1, (timestamp - start) / duration)
-                let offsetX = 0, offsetY = 0
-                if (direction === 'right') {
-                    offsetX = -t * w
-                } else if (direction === 'left') {
-                    offsetX = t * w
-                } else if (direction === 'down') {
-                    offsetY = -t * h
-                } else if (direction === 'up') {
-                    offsetY = t * h
-                }
-                this.context.clearRect(0, 0, w, h)
-                this.context.drawImage(fromCanvas, offsetX, offsetY)
-                if (direction === 'right') {
-                    this.context.drawImage(toCanvas, offsetX + w, offsetY)
-                } else if (direction === 'left') {
-                    this.context.drawImage(toCanvas, offsetX - w, offsetY)
-                } else if (direction === 'down') {
-                    this.context.drawImage(toCanvas, offsetX, offsetY + h)
-                } else if (direction === 'up') {
-                    this.context.drawImage(toCanvas, offsetX, offsetY - h)
-                }
-                if (t < 1) {
-                    requestAnimationFrame(animate)
-                } else {
-                    this._slidePicTicking = false;
-                    callback && callback()
-                }
-            }
-            requestAnimationFrame(animate)
-        }
-        // 輔助：畫插圖到 context
-        this.drawPictureToContext = (graphic, ctx, cWidth, cHeight) => {
-            if (!graphic || !graphic.frameList || !graphic.frameList.length) return
-            let frame = graphic.frameList[0]
-            let gWidth = graphic.width
-            let gHeight = graphic.height
-            let scale = Math.min(cWidth / gWidth, cHeight / gHeight)
-            let drawW = gWidth * scale
-            let drawH = gHeight * scale
-            let offsetX = (cWidth - drawW) / 2
-            let offsetY = (cHeight - drawH) / 2
-            let tempCanvas = document.createElement('canvas')
-            tempCanvas.width = gWidth
-            tempCanvas.height = gHeight
-            let tempCtx = tempCanvas.getContext('2d')
-            let palette = this.world.paletteList.find(p => p.name === graphic.paletteName) || this.world.paletteList[this.currentPaletteIndex]
-            let colorList = palette ? palette.colorList : ['#000']
-            this.drawFrame(frame, gWidth, tempCtx, colorList, graphic.isTransparent, graphic.colorIndex)
-            ctx.drawImage(tempCanvas, offsetX, offsetY, drawW, drawH)
-        }
-
-        // === cross-fade 插圖動畫（逐幀 steps 控制） ===
-        this.crossFadePicture = (fromPicName, toPicName, duration = 400, callback) => {
-            if (this._fadeTicking) return;
-            this._fadeTicking = true;
-            let w = this.canvas.width, h = this.canvas.height;
-            let fromPic = fromPicName ? this.world.graphicList.find(g => g.name === fromPicName && g.type === 'picture') : null;
-            let toPic = toPicName ? this.world.graphicList.find(g => g.name === toPicName && g.type === 'picture') : null;
-            let fromCanvas = document.createElement('canvas');
-            fromCanvas.width = w; fromCanvas.height = h;
-            let fromCtx = fromCanvas.getContext('2d');
-            fromCtx.clearRect(0, 0, w, h);
-            if (fromPic) this.drawPictureToContext(fromPic, fromCtx, w, h);
-            let toCanvas = document.createElement('canvas');
-            toCanvas.width = w; toCanvas.height = h;
-            let toCtx = toCanvas.getContext('2d');
-            toCtx.clearRect(0, 0, w, h);
-            if (toPic) this.drawPictureToContext(toPic, toCtx, w, h);
-            let steps = Math.max(2, Math.round(duration / (this.frameRate / 3)));
-            let current = 0, step = 1 / steps, frame = 0;
-            let tick = () => {
-                frame++;
-                this.context.clearRect(0, 0, w, h);
-                if (fromPic) {
-                    this.context.globalAlpha = 1 - current;
-                    this.context.drawImage(fromCanvas, 0, 0);
-                }
-                if (toPic) {
-                    this.context.globalAlpha = current;
-                    this.context.drawImage(toCanvas, 0, 0);
-                }
-                this.context.globalAlpha = 1;
-                current += step;
-                if (frame < steps) setTimeout(tick, duration / steps);
-                else { this._fadeTicking = false; callback && callback(); }
-            };
-            tick();
-        };
-
-        // === cross-fade 房間動畫（逐幀 steps 控制） ===
-        this.crossFadeRooms = (fromRoomIndex, toRoomIndex, duration = 400, callback) => {
-            if (this._fadeTicking) return;
-            this._fadeTicking = true;
-            let w = this.canvas.width, h = this.canvas.height;
-            let fromRoom = this.world.roomList[fromRoomIndex];
-            let toRoom = this.world.roomList[toRoomIndex];
-            let paletteFrom = this.world.paletteList.find(p => p.name === fromRoom.paletteName) || this.world.paletteList[this.currentPaletteIndex];
-            let paletteTo = this.world.paletteList.find(p => p.name === toRoom.paletteName) || this.world.paletteList[this.currentPaletteIndex];
-            let colorFrom = paletteFrom ? paletteFrom.colorList[0] : '#000';
-            let colorTo = paletteTo ? paletteTo.colorList[0] : '#000';
-            let fromCanvas = document.createElement('canvas');
-            fromCanvas.width = w; fromCanvas.height = h;
-            let fromCtx = fromCanvas.getContext('2d');
-            fromCtx.fillStyle = colorFrom;
-            fromCtx.fillRect(0, 0, w, h);
-            this.drawRoomToContext(fromRoom, fromCtx, paletteFrom.colorList, fromRoomIndex, fromRoomIndex, this.avatarX, this.avatarY, this.avatar);
-            let toCanvas = document.createElement('canvas');
-            toCanvas.width = w; toCanvas.height = h;
-            let toCtx = toCanvas.getContext('2d');
-            toCtx.fillStyle = colorTo;
-            toCtx.fillRect(0, 0, w, h);
-            this.drawRoomToContext(toRoom, toCtx, paletteTo.colorList, toRoomIndex, toRoomIndex, this.nextX, this.nextY, this.avatar);
-            let steps = Math.max(2, Math.round(duration / (this.frameRate / 3)));
-            let current = 0, step = 1 / steps, frame = 0;
-            let tick = () => {
-                frame++;
-                this.context.fillStyle = colorFrom;
-                this.context.fillRect(0, 0, w, h);
-                this.context.globalAlpha = 1 - current;
-                this.context.drawImage(fromCanvas, 0, 0);
-                this.context.globalAlpha = current;
-                this.context.drawImage(toCanvas, 0, 0);
-                this.context.globalAlpha = 1;
-                current += step;
-                if (frame < steps) setTimeout(tick, duration / steps);
-                else { this._fadeTicking = false; callback && callback(); }
-            };
-            tick();
-        };
 
         // === 儲存/載入遊戲進度 ===
         this.exportState = () => {
@@ -1654,182 +1195,36 @@ return class {
                 followerTrail: this.followerTrail,
                 // 房間內 tileList 只存有變動的（如道具被撿走、門被打開等）
                 roomStates: this.world.roomList.map(room => ({
-                    tileList: room.tileList.map(tile => ({...tile})),
-                    paletteName: room.paletteName,
-                    musicName: room.musicName
+                    tileList: room.tileList.map(tile => ({...tile}))
                 })),
-                // 存儲插圖的動態調色盤和音樂
-                graphicStates: this.world.graphicList
-                    .filter(g => g.type === 'picture')
-                    .map(g => ({
-                        name: g.name,
-                        paletteName: g.paletteName,
-                        musicName: g.musicName
-                    })),
-                // 當前插圖狀態
-                currentPicture: this.currentPicture,
-                currentPicturePalette: this.currentPicturePalette,
-                currentPictureMusic: this.currentPictureMusic
             });
         }
 
         this.importState = (json) => {
             try {
                 const data = typeof json === 'string' ? JSON.parse(json) : json;
-                // 先保存目標房間索引和位置（不要立即設定 currentRoomIndex）
-                const targetRoomIndex = data.currentRoomIndex;
-                const targetX = data.avatarX;
-                const targetY = data.avatarY;
-                
-                // 還原其他狀態
+                this.avatarX = data.avatarX;
+                this.avatarY = data.avatarY;
                 this.avatarDirection = data.avatarDirection || 'front';
+                this.currentRoomIndex = data.currentRoomIndex;
                 this.inventory = data.inventory || {};
                 this.variables = data.variables || {};
                 this.followerList = data.followerList || [];
                 this.followerTrail = data.followerTrail || [];
-                
-                // 還原房間 tileList 和動態調色盤/音樂
+                // 還原房間 tileList
                 if (Array.isArray(data.roomStates)) {
                     data.roomStates.forEach((roomState, i) => {
                         if (this.world.roomList[i] && roomState && Array.isArray(roomState.tileList)) {
                             this.world.roomList[i].tileList = roomState.tileList.map(tile => ({...tile}));
-                            // 還原房間的動態調色盤和音樂
-                            if (roomState.paletteName !== undefined) {
-                                this.world.roomList[i].paletteName = roomState.paletteName;
-                            }
-                            if (roomState.musicName !== undefined) {
-                                this.world.roomList[i].musicName = roomState.musicName;
-                            }
                         }
                     });
                 }
-                
-                // 還原插圖的動態調色盤和音樂
-                if (Array.isArray(data.graphicStates)) {
-                    data.graphicStates.forEach(graphicState => {
-                        let graphic = this.world.graphicList.find(g => g.name === graphicState.name && g.type === 'picture');
-                        if (graphic) {
-                            if (graphicState.paletteName !== undefined) {
-                                graphic.paletteName = graphicState.paletteName;
-                            }
-                            if (graphicState.musicName !== undefined) {
-                                graphic.musicName = graphicState.musicName;
-                            }
-                        }
-                    });
-                }
-                
-                // 還原當前插圖狀態
-                if (data.currentPicture !== undefined) {
-                    this.currentPicture = data.currentPicture;
-                }
-                if (data.currentPicturePalette !== undefined) {
-                    this.currentPicturePalette = data.currentPicturePalette;
-                }
-                if (data.currentPictureMusic !== undefined) {
-                    this.currentPictureMusic = data.currentPictureMusic;
-                }
-                
-                // 如果目標房間與當前房間不同，先切換房間（此時 currentRoomIndex 還是舊值）
-                if (targetRoomIndex !== this.currentRoomIndex) {
-                    this.moveRooms(targetRoomIndex, true);
-                }
-                
-                // 設定玩家位置（確保在房間切換後設定）
-                this.avatarX = targetX;
-                this.avatarY = targetY;
-                this.nextX = targetX;
-                this.nextY = targetY;
-                this.nextRoomIndex = targetRoomIndex;
-                
-                // 強制更新緩存和渲染
+                this.moveRooms(this.currentRoomIndex, true);
                 this.updateCache();
-                // 使用 requestAnimationFrame 確保畫面更新
-                if (this.update) {
-                    requestAnimationFrame((timestamp) => {
-                        this.update(timestamp);
-                    });
-                }
-                
-                // 觸發變量更新回調，讓面板同步更新
-                if (this.onVariablesChange) {
-                    this.onVariablesChange(this.variables);
-                }
-                // 觸發物品欄更新回調
-                if (this.onInventoryChange) {
-                    this.onInventoryChange(this.inventory);
-                }
+                this.render && this.render();
             } catch (e) {
                 console.error('載入存檔失敗', e);
             }
-        }
-
-        // === 全域滑動動畫 API ===
-        this.slideTransition = (fromRoomIndex, toRoomIndex, direction, callback, duration = 400) => {
-            if (this._slideTicking) return;
-            this._slideTicking = true;
-            // direction 可選，若未指定則自動判斷
-            let fromRoom = this.world.roomList[fromRoomIndex]
-            let toRoom = this.world.roomList[toRoomIndex]
-            let paletteFrom = this.world.paletteList[this.world.roomList[fromRoomIndex].paletteName ? this.world.paletteList.findIndex(p => p.name === this.world.roomList[fromRoomIndex].paletteName) : this.currentPaletteIndex]
-            let paletteTo = this.world.paletteList[this.world.roomList[toRoomIndex].paletteName ? this.world.paletteList.findIndex(p => p.name === this.world.roomList[toRoomIndex].paletteName) : this.currentPaletteIndex]
-            let colorListFrom = paletteFrom ? paletteFrom.colorList : ['#000']
-            let colorListTo = paletteTo ? paletteTo.colorList : ['#000']
-            let w = this.canvas.width
-            let h = this.canvas.height
-            let fromCanvas = document.createElement('canvas')
-            fromCanvas.width = w; fromCanvas.height = h
-            let fromCtx = fromCanvas.getContext('2d')
-            this.drawRoomToContext(fromRoom, fromCtx, colorListFrom, fromRoomIndex, fromRoomIndex, this.avatarX, this.avatarY, this.avatar)
-            let toCanvas = document.createElement('canvas')
-            toCanvas.width = w; toCanvas.height = h
-            let toCtx = toCanvas.getContext('2d')
-            this.drawRoomToContext(toRoom, toCtx, colorListTo, toRoomIndex, toRoomIndex, this.nextX, this.nextY, this.avatar)
-            let worldW = this.world.worldWidth
-            let dx = (toRoomIndex % worldW) - (fromRoomIndex % worldW)
-            let dy = Math.floor(toRoomIndex / worldW) - Math.floor(fromRoomIndex / worldW)
-            let dir = direction
-            if (!dir) {
-                if (Math.abs(dx) > Math.abs(dy)) {
-                    dir = dx > 0 ? 'right' : 'left'
-                } else {
-                    dir = dy > 0 ? 'down' : 'up'
-                }
-            }
-            let animDuration = duration || 400;
-            let start = null
-            let animate = (timestamp) => {
-                if (!start) start = timestamp
-                let t = Math.min(1, (timestamp - start) / animDuration)
-                let offsetX = 0, offsetY = 0
-                if (dir === 'right') {
-                    offsetX = -t * w
-                } else if (dir === 'left') {
-                    offsetX = t * w
-                } else if (dir === 'down') {
-                    offsetY = -t * h
-                } else if (dir === 'up') {
-                    offsetY = t * h
-                }
-                this.context.clearRect(0, 0, w, h)
-                this.context.drawImage(fromCanvas, offsetX, offsetY)
-                if (dir === 'right') {
-                    this.context.drawImage(toCanvas, offsetX + w, offsetY)
-                } else if (dir === 'left') {
-                    this.context.drawImage(toCanvas, offsetX - w, offsetY)
-                } else if (dir === 'down') {
-                    this.context.drawImage(toCanvas, offsetX, offsetY + h)
-                } else if (dir === 'up') {
-                    this.context.drawImage(toCanvas, offsetX, offsetY - h)
-                }
-                if (t < 1) {
-                    requestAnimationFrame(animate)
-                } else {
-                    this._slideTicking = false;
-                    if (typeof callback === 'function') callback()
-                }
-            }
-            requestAnimationFrame(animate)
         }
     }
 

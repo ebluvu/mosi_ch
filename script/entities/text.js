@@ -181,39 +181,23 @@ return {
             for (let i = startLine; i < endLine; i++) {
                 let opt = choiceList[i];
                 let optText = opt;
-                // 新增：如果有解析後的文字節點資訊，使用它
-                let optTextNode = node.choiceTextNodes && node.choiceTextNodes[i];
-                if (optTextNode) {
-                    optText = optTextNode.text;
-                }
                 let optY = Math.floor(y + (i - startLine) * fontData.height * lineSpacing);
-                // 修正：當 maxChars === -1 時（快速跳過），應該顯示所有文字
-                let showChars;
-                if (typeof maxChars === 'number' && maxChars >= 0) {
-                    showChars = Math.max(0, Math.min(optText.length, maxChars - charsSoFar));
-                } else {
-                    // maxChars === -1 時，顯示所有文字
-                    showChars = optText.length;
-                }
+                let showChars = Math.max(0, Math.min(optText.length, (typeof maxChars === 'number' ? maxChars : -1) - charsSoFar));
                 let displayText = optText.substring(0, showChars);
-                // 新增：使用文字節點的顏色和樣式（如果有），否則使用預設值
-                let optColor = optTextNode && optTextNode.color ? optTextNode.color : defaultTextColor;
-                let optStyle = optTextNode && optTextNode.style ? optTextNode.style : '';
                 // 畫選項文字
                 Text.drawSeq(
                     context,
                     fontData,
                     fontDirection,
                     displayText,
-                    optColor,
-                    optStyle,
+                    defaultTextColor,
+                    '',
                     x,
                     optY,
                     timestamp
                 );
-                // === drawNode 內 'choice' 分支，箭頭繪製 ===
+                // 箭頭
                 if (i === currentIdx && showChars === optText.length) {
-                    // === 箭頭座標與尺寸計算 ===
                     let arrowWidth = fontData.width * textScale;
                     let arrowHeight = fontData.height * textScale;
                     let positionOffset = textScale === 1 ? Math.floor(fontData.width * 0.25) : 0;
@@ -226,46 +210,40 @@ return {
                         - (arrowHeight / 2)
                         + (textScale === 1 ? arrowHeight / 3 : 0)
                     );
-                    // === 完全比照 drawContinueIndicator 的皮膚動畫寫法 ===
+                    // 完全比照 drawContinueIndicator 的皮膚動畫寫法
                     let useWorld = world || (window.game && window.game.world);
                     let useSkin = useWorld && useWorld.textboxSkin;
-                    // 使用傳入的 palette 參數（已經是當前房間的動態調色盤）
-                    let usePalette = palette;
+                    let usePalette = palette || (useWorld && useWorld.paletteList ? useWorld.paletteList[useWorld.mainPaletteIndex] : null);
                     let frameCount = useSkin && useSkin.indicatorList ? useSkin.indicatorList.length : 1;
-                    let frameIdx = (typeof window._mosiChoiceArrowFrame === 'number') ? (window._mosiChoiceArrowFrame % frameCount) : Math.floor((Date.now() / 400) % frameCount);
-                    let indicator = useSkin && useSkin.indicatorList ? useSkin.indicatorList[frameIdx] : null;
-                    if (useSkin && indicator && usePalette && usePalette.colorList) {
-                        // 只做一次 fallback，超出範圍的 index 統一設為 -1
-                        let patchedIndicator = indicator.map(val => (val >= usePalette.colorList.length || val < 0) ? -1 : val);
-                        let fw = useSkin.fontWidth, fh = useSkin.fontHeight;
-                        let indicatorWidth = textScale === 1 ? fw : fw;
-                        let indicatorHeight = textScale === 1 ? fh : fh;
-                        let positionOffset2 = textScale === 1 ? Math.floor(fw * 0.5) : 0;
-                        let arrowX2 = arrowX + positionOffset2;
-                        let arrowY2 = arrowY + positionOffset2;
-                        Text.drawSkinBlock(context, patchedIndicator, arrowX2, arrowY2, indicatorWidth, indicatorHeight, usePalette, useSkin.isTransparent);
+                    let frameIdx;
+                    if (typeof window._mosiChoiceArrowFrame === 'number') {
+                        frameIdx = window._mosiChoiceArrowFrame % frameCount;
                     } else {
-                        Text.drawContinueIndicator(
-                            context,
-                            fontData,
-                            arrowX,
-                            arrowY,
-                            arrowWidth,
-                            arrowHeight,
-                            defaultTextColor,
-                            useWorld,
-                            usePalette,
-                            frameIdx
-                        );
+                        let now = Date.now();
+                        frameIdx = Math.floor((now / 400) % frameCount);
                     }
+                    // 皮膚樣式時才加 positionOffset
+                    if (useSkin) {
+                        arrowX += positionOffset;
+                        arrowY += positionOffset;
+                    }
+                    Text.drawContinueIndicator(
+                        context,
+                        fontData,
+                        arrowX,
+                        arrowY,
+                        arrowWidth,
+                        arrowHeight,
+                        defaultTextColor,
+                        useWorld,
+                        usePalette,
+                        frameIdx
+                    );
                 }
                 charsSoFar += optText.length + 1;
             }
             // 控制動畫跑完才能互動
-            // 修正：當 maxChars === -1 時（快速跳過），應該允許互動
-            window._mosiChoiceCanInteract = (typeof maxChars === 'number' && maxChars >= 0) 
-                ? (maxChars >= allChars) 
-                : true; // maxChars === -1 時表示顯示所有內容，允許互動
+            window._mosiChoiceCanInteract = ((typeof maxChars === 'number' ? maxChars : -1) >= allChars);
             // === 事件移除工具 ===
             function removeChoiceEventListeners() {
                 let canvases = document.querySelectorAll('canvas');
@@ -274,18 +252,12 @@ return {
                     textCanvas.removeEventListener('mousedown', window._mosiChoiceMouseDown);
                     textCanvas.removeEventListener('mousemove', window._mosiChoiceMouseMove);
                     textCanvas.removeEventListener('mouseup', window._mosiChoiceMouseUp);
-                    // 修正：touch 事件是註冊在 textCanvas 上的，應該從 textCanvas 移除
-                    textCanvas.removeEventListener('touchstart', window._mosiChoiceTouchStart);
-                    textCanvas.removeEventListener('touchmove', window._mosiChoiceTouchMove);
-                    textCanvas.removeEventListener('touchend', window._mosiChoiceTouchEnd);
                     textCanvas.style.pointerEvents = 'none'; // 讓事件能傳到主流程
                 }
                 window.removeEventListener('keydown', window._mosiChoiceKeyHandler);
-                // 清理 timeout（如果存在）
-                if (window._mosiChoiceTouchHandledTimeout) {
-                    clearTimeout(window._mosiChoiceTouchHandledTimeout);
-                    window._mosiChoiceTouchHandledTimeout = null;
-                }
+                window.removeEventListener('touchstart', window._mosiChoiceTouchStart);
+                window.removeEventListener('touchmove', window._mosiChoiceTouchMove);
+                window.removeEventListener('touchend', window._mosiChoiceTouchEnd);
             }
             if (!node._mosiOnSelectWrapped) {
                 let _originOnSelect = node.onSelect;
@@ -313,25 +285,15 @@ return {
                 node._mosiOnSelectWrapped = true;
             }
             // 每次渲染都重新綁定keydown與pointer/touch事件
-            // 先清理舊的事件監聽器
             window.removeEventListener('keydown', window._mosiChoiceKeyHandler);
-            // 使用已存在的 canvases 變數，避免重複宣告
-            let canvasesForCleanup = document.querySelectorAll('canvas');
-            let textCanvasForCleanup = canvasesForCleanup[1];
-            if (textCanvasForCleanup) {
-                textCanvasForCleanup.removeEventListener('mousedown', window._mosiChoiceMouseDown);
-                textCanvasForCleanup.removeEventListener('mousemove', window._mosiChoiceMouseMove);
-                textCanvasForCleanup.removeEventListener('mouseup', window._mosiChoiceMouseUp);
-                textCanvasForCleanup.removeEventListener('touchstart', window._mosiChoiceTouchStart);
-                textCanvasForCleanup.removeEventListener('touchmove', window._mosiChoiceTouchMove);
-                textCanvasForCleanup.removeEventListener('touchend', window._mosiChoiceTouchEnd);
-            }
-            // 清理 timeout（如果存在）
-            if (window._mosiChoiceTouchHandledTimeout) {
-                clearTimeout(window._mosiChoiceTouchHandledTimeout);
-                window._mosiChoiceTouchHandledTimeout = null;
-            }
+            window.removeEventListener('touchstart', window._mosiChoiceTouchStart);
+            window.removeEventListener('touchmove', window._mosiChoiceTouchMove);
+            window.removeEventListener('touchend', window._mosiChoiceTouchEnd);
+            window.removeEventListener('mousedown', window._mosiChoiceTouchStart);
+            window.removeEventListener('mousemove', window._mosiChoiceTouchMove);
+            window.removeEventListener('mouseup', window._mosiChoiceTouchEnd);
 
+            let startX, startY, moved = false;
             window._mosiChoiceKeyHandler = function(e) {
                 if (!window._mosiChoiceActive || !window._mosiChoiceCanInteract) return;
                 let len = choiceList.length;
@@ -354,80 +316,45 @@ return {
                 }
                 if (window.game && typeof window.game.update === 'function') window.game.update();
             };
-            // === Touch 狀態 ===（使用 window 儲存，避免重複宣告）
-            if (typeof window._mosiChoiceTouchStartX === 'undefined') window._mosiChoiceTouchStartX = 0;
-            if (typeof window._mosiChoiceTouchStartY === 'undefined') window._mosiChoiceTouchStartY = 0;
-            if (typeof window._mosiChoiceTouchEndX === 'undefined') window._mosiChoiceTouchEndX = 0;
-            if (typeof window._mosiChoiceTouchEndY === 'undefined') window._mosiChoiceTouchEndY = 0;
-            if (typeof window._mosiChoiceTouchMoved === 'undefined') window._mosiChoiceTouchMoved = false;
-            if (typeof window._mosiChoiceTouchStartTime === 'undefined') window._mosiChoiceTouchStartTime = 0;
-            // === Mouse 狀態 ===（使用 window 儲存）
-            if (typeof window._mosiChoiceMouseStartX === 'undefined') window._mosiChoiceMouseStartX = 0;
-            if (typeof window._mosiChoiceMouseStartY === 'undefined') window._mosiChoiceMouseStartY = 0;
-            if (typeof window._mosiChoiceMouseMoved === 'undefined') window._mosiChoiceMouseMoved = false;
-            if (typeof window._mosiChoiceMouseIsDown === 'undefined') window._mosiChoiceMouseIsDown = false;
-            // 新增：標記是否剛處理過 touch 事件，避免在手機上重複觸發（使用 window 儲存）
-            if (typeof window._mosiChoiceJustHandledTouch === 'undefined') window._mosiChoiceJustHandledTouch = false;
-            if (typeof window._mosiChoiceTouchHandledTimeout === 'undefined') window._mosiChoiceTouchHandledTimeout = null;
+            // === Touch 狀態 ===
+            let startX_touch = 0;
+            let startY_touch = 0;
+            let endX_touch = 0;
+            let endY_touch = 0;
+            // === Mouse 狀態 ===
+            let startX_mouse, startY_mouse, moved_mouse = false;
+            let mouseIsDown = false;
             // === Touch 事件 ===
             window._mosiChoiceTouchStart = function(e) {
                 if (!window._mosiChoiceActive || !window._mosiChoiceCanInteract) return;
-                if (!e.touches || e.touches.length === 0) return;
-                e.preventDefault(); // 防止外部頁面滾動
+                if (!e.touches) return;
+                e.preventDefault(); // 新增：防止外部頁面滾動
                 window._mosiForceFullRender = true;
                 let pointer = e.touches[0];
-                window._mosiChoiceTouchStartX = pointer.clientX;
-                window._mosiChoiceTouchStartY = pointer.clientY;
-                window._mosiChoiceTouchEndX = pointer.clientX;
-                window._mosiChoiceTouchEndY = pointer.clientY;
-                window._mosiChoiceTouchMoved = false;
-                window._mosiChoiceTouchStartTime = Date.now(); // 記錄開始時間
+                startX_touch = pointer.clientX;
+                startY_touch = pointer.clientY;
+                endX_touch = pointer.clientX;
+                endY_touch = pointer.clientY; // Initialize endY_touch
+                moved_touch = false; // 這裡重設
                 if (window.game && typeof window.game.update === 'function') window.game.update();
             };
             window._mosiChoiceTouchMove = function(e) {
                 if (!window._mosiChoiceActive || !window._mosiChoiceCanInteract) return;
-                if (!e.touches || e.touches.length === 0) return;
+                if (!e.touches) return;
                 e.preventDefault();
                 let pointer = e.touches[0];
-                let newX = pointer.clientX;
-                let newY = pointer.clientY;
-                // 如果移動距離超過閾值，標記為已移動
-                if (Math.abs(newX - window._mosiChoiceTouchStartX) > 5 || Math.abs(newY - window._mosiChoiceTouchStartY) > 5) {
-                    window._mosiChoiceTouchMoved = true;
-                }
-                window._mosiChoiceTouchEndX = newX;
-                window._mosiChoiceTouchEndY = newY;
+                endX_touch = pointer.clientX;
+                endY_touch = pointer.clientY;
             };
             window._mosiChoiceTouchEnd = function(e) {
                 if (!window._mosiChoiceActive || !window._mosiChoiceCanInteract) return;
-                if (!e.changedTouches || e.changedTouches.length === 0) return;
-                e.preventDefault(); // 防止外部頁面滾動
+                if (!e.changedTouches) return;
+                e.preventDefault(); // 新增：防止外部頁面滾動
                 window._mosiForceFullRender = false;
-                
-                // 使用 changedTouches 獲取最終座標（修正：確保獲取正確的結束座標）
-                let endPointer = e.changedTouches[0];
-                let finalX = endPointer.clientX;
-                let finalY = endPointer.clientY;
-                
-                let dx = finalX - window._mosiChoiceTouchStartX;
-                let dy = finalY - window._mosiChoiceTouchStartY;
+                let dx = endX_touch - startX_touch;
+                let dy = endY_touch - startY_touch;
                 let len = choiceList.length;
-                let touchDuration = Date.now() - window._mosiChoiceTouchStartTime;
-                
-                // 判斷是否為點擊（移動距離小且時間短）
-                let isClick = !window._mosiChoiceTouchMoved && Math.abs(dx) < 10 && Math.abs(dy) < 10 && touchDuration < 300;
-                
-                // 標記剛處理過 touch 事件，防止後續 mouse 事件重複觸發
-                window._mosiChoiceJustHandledTouch = true;
-                if (window._mosiChoiceTouchHandledTimeout) clearTimeout(window._mosiChoiceTouchHandledTimeout);
-                window._mosiChoiceTouchHandledTimeout = setTimeout(() => {
-                    window._mosiChoiceJustHandledTouch = false;
-                }, 300); // 300ms 後重置標記
-                
-                if (isClick) {
-                    // 直接點擊確認選擇
-                    window._mosiChoiceKeyHandler({key: 'ArrowRight'});
-                } else if (dx > 30 && dx > Math.abs(dy) * 2) {
+                if (dx > 30 && dx > Math.abs(dy) * 2) {
                     // 右滑確認
                     window._mosiChoiceKeyHandler({key: 'ArrowRight'});
                 } else if (Math.abs(dy) > 20) {
@@ -440,59 +367,53 @@ return {
                     }
                     if (window.game && typeof window.game.update === 'function') window.game.update();
                 }
-                window._mosiChoiceTouchMoved = false;
+                moved_touch = false; // 這裡重設
             };
             // === Mouse 事件 ===
             window._mosiChoiceMouseDown = function(e) {
-                // 如果是 touch 事件觸發的 mouse 事件，忽略它
-                if (window._mosiChoiceJustHandledTouch) return;
                 e.stopPropagation();
                 if (!window._mosiChoiceActive || !window._mosiChoiceCanInteract) return;
                 if (e.button !== 0) return; // 只處理左鍵
                 window._mosiForceFullRender = true;
-                window._mosiChoiceMouseStartX = e.clientX;
-                window._mosiChoiceMouseStartY = e.clientY;
-                window._mosiChoiceMouseMoved = false;
-                window._mosiChoiceMouseIsDown = true;
+                startX_mouse = e.clientX;
+                startY_mouse = e.clientY;
+                moved_mouse = false;
+                mouseIsDown = true; // 新增
                 if (window.game && typeof window.game.update === 'function') window.game.update();
             };
             window._mosiChoiceMouseMove = function(e) {
-                // 如果是 touch 事件觸發的 mouse 事件，忽略它
-                if (window._mosiChoiceJustHandledTouch) return;
                 e.stopPropagation();
                 if (!window._mosiChoiceActive || !window._mosiChoiceCanInteract) return;
-                if (!window._mosiChoiceMouseIsDown) return; // 只有按下時才切換
-                if (typeof window._mosiChoiceMouseStartY !== 'number') return;
-                let dy = e.clientY - window._mosiChoiceMouseStartY;
+                if (!mouseIsDown) return; // 新增：只有按下時才切換
+                if (typeof startY_mouse !== 'number') return;
+                let dy = e.clientY - startY_mouse;
                 let len = choiceList.length;
-                if (Math.abs(dy) > 20 && !window._mosiChoiceMouseMoved) {
+                if (Math.abs(dy) > 20 && !moved_mouse) {
                     if (dy > 0) {
                         window._mosiChoiceIndex = (window._mosiChoiceIndex + 1) % len;
                     } else {
                         window._mosiChoiceIndex = (window._mosiChoiceIndex + len - 1) % len;
                     }
-                    window._mosiChoiceMouseMoved = true;
+                    moved_mouse = true;
                     if (window.game && typeof window.game.update === 'function') window.game.update();
                 }
             };
             window._mosiChoiceMouseUp = function(e) {
-                // 如果是 touch 事件觸發的 mouse 事件，忽略它
-                if (window._mosiChoiceJustHandledTouch) return;
                 e.stopPropagation();
                 if (!window._mosiChoiceActive || !window._mosiChoiceCanInteract) return;
                 if (e.button !== 0) return;
                 window._mosiForceFullRender = false;
-                let dx = e.clientX - window._mosiChoiceMouseStartX;
+                let dx = e.clientX - startX_mouse;
                 if (dx > 30) {
                     window._mosiChoiceKeyHandler({key: 'ArrowRight'});
                 }
                 if (window.game && typeof window.game.update === 'function') window.game.update();
-                window._mosiChoiceMouseMoved = false;
-                window._mosiChoiceMouseIsDown = false;
+                moved_mouse = false;
+                mouseIsDown = false; // 新增
             };
             // 只在 textCanvas 上註冊滑鼠事件
-            let canvasesForRegister = document.querySelectorAll('canvas');
-            let textCanvas = canvasesForRegister[1]; // 對話層 canvas
+            let canvases = document.querySelectorAll('canvas');
+            let textCanvas = canvases[1]; // 對話層 canvas
             if (textCanvas) {
                 textCanvas.style.pointerEvents = '';
                 if (textCanvas.focus) textCanvas.focus(); // 新增：自動 focus textCanvas
@@ -512,8 +433,7 @@ return {
             // window.addEventListener('touchmove', window._mosiChoiceTouchMove, { passive: false });
             // window.addEventListener('touchend', window._mosiChoiceTouchEnd, { passive: false });
             // 動畫沒跑完時，return -1
-            // 修正：當 maxChars === -1 時（快速跳過），應該允許選項顯示
-            if (typeof maxChars === 'number' && maxChars >= 0 && maxChars < allChars) {
+            if ((typeof maxChars === 'number' ? maxChars : -1) < allChars) {
                 return -1;
             }
             // 不繼續往下，等選擇後再繼續
@@ -640,40 +560,13 @@ return {
         return actualLines
     },
 
-    drawBackground: (context, fontData, position, linesPerPage = 2, bgColor = 'black', world = null, palette = null, actualLines = null, bgAlpha = 1) => {
-        let prevAlpha = context.globalAlpha;
-        // 皮膚分支：bgAlpha === 0 時直接不畫背景
-        if (world && world.textboxSkin && bgAlpha === 0) {
-            context.globalAlpha = prevAlpha;
-            let textScale = window.textScale || 2;
-            let maxLines = 2;
-            if (world && typeof world.dialogMaxLines === 'number' && world.dialogMaxLines >= 2 && world.dialogMaxLines <= 10) {
-                maxLines = world.dialogMaxLines;
-            } else if (typeof window.dialogMaxLines === 'number' && window.dialogMaxLines >= 2 && window.dialogMaxLines <= 10) {
-                maxLines = window.dialogMaxLines;
-            }
-            let actualLinesPerPage = 2;
-            if (actualLines && actualLines > 2) {
-                actualLinesPerPage = Math.min(actualLines, maxLines);
-            }
-            let bgWidth = context.canvas.width - (fontData.width * 2);
-            let bgHeightMultiplier = textScale === 1 ? (actualLinesPerPage <= 2 ? (actualLinesPerPage * 2 + 0.5) : (actualLinesPerPage * 1.5 + 1.5)) : (actualLinesPerPage * 2 + 3);
-            let bgHeight = Math.floor(fontData.height * bgHeightMultiplier);
-            let bgX = fontData.width;
-            let bgY;
-            if (position === 'top') {
-                bgY = fontData.width;
-            } else if (position === 'bottom') {
-                bgY = context.canvas.height - bgHeight - fontData.width;
-            } else {
-                bgY = Math.floor(context.canvas.height / 2 - bgHeight / 2);
-            }
-            return { bgX, bgY, bgWidth, bgHeight };
-        }
+    drawBackground: (context, fontData, position, linesPerPage = 2, bgColor = 'black', world = null, palette = null, actualLines = null) => {
         
-        // 只在 overallAlpha === 1 時才用 bgAlpha
-        if (prevAlpha === 1 && typeof bgAlpha === 'number') {
-            context.globalAlpha = bgAlpha;
+        // 新增：根據 window._mosiDialogAlpha 控制對話框透明度
+        if (typeof window !== 'undefined' && typeof window._mosiDialogAlpha !== 'undefined') {
+            context.globalAlpha = window._mosiDialogAlpha;
+        } else {
+            context.globalAlpha = 1;
         }
         
         // 動態計算實際需要的行數
@@ -693,285 +586,138 @@ return {
         
         
         if (world && world.textboxSkin) {
-            let pos = typeof window.textPosition === 'string' ? window.textPosition : undefined;
-            let skin = world.textboxSkin;
-            let textScale = window.textScale || 2;
-            let maxLines = 2;
-            if (world && typeof world.dialogMaxLines === 'number' && world.dialogMaxLines >= 2 && world.dialogMaxLines <= 10) {
-                maxLines = world.dialogMaxLines;
-            } else if (typeof window.dialogMaxLines === 'number' && window.dialogMaxLines >= 2 && window.dialogMaxLines <= 10) {
-                maxLines = window.dialogMaxLines;
+            // 只認 top/bottom/fullscreen，否則什麼都不畫
+            let pos = typeof window.textPosition === 'string' ? window.textPosition : undefined
+            if (pos !== 'top' && pos !== 'bottom' && pos !== 'fullscreen' && pos !== 'center') {
+                return { bgX: 0, bgY: 0, bgWidth: 0, bgHeight: 0 }
             }
-            let actualLinesPerPage = 2;
-            if (actualLines && actualLines > 2) {
-                actualLinesPerPage = Math.min(actualLines, maxLines);
-            }
-            let fw = skin.fontWidth, fh = skin.fontHeight;
-            // === top 分支快取 ===
+            let skin = world.textboxSkin
+            let bgWidth = context.canvas.width - (fontData.width * 2)
+            let textScale = window.textScale || 2
+            let bgHeightMultiplier = textScale === 1 ? (actualLinesPerPage <= 2 ? (actualLinesPerPage * 2 + 0.5) : (actualLinesPerPage * 1.5 + 1.5)) : (actualLinesPerPage * 2 + 3)
+            let bgHeight = Math.floor(fontData.height * bgHeightMultiplier)
+            let bgX = fontData.width
+            let bgY
             if (pos === 'top') {
-                let bgWidth = context.canvas.width - (fontData.width * 2);
-                let bgHeightMultiplier = textScale === 1 ? (actualLinesPerPage <= 2 ? (actualLinesPerPage * 2 + 0.5) : (actualLinesPerPage * 1.5 + 1.5)) : (actualLinesPerPage * 2 + 3);
-                let bgHeight = Math.floor(fontData.height * bgHeightMultiplier);
-                let bgX = fontData.width;
-                let bgY = fontData.width;
-                let paletteId = palette && palette.name ? palette.name : '';
-                if (!Text._skinCacheTop) Text._skinCacheTop = null;
-                if (!Text._skinCacheKeyTop) Text._skinCacheKeyTop = '';
-                let cacheKey = (skin.name || '') + '_' + bgX + '_' + bgY + '_' + bgWidth + '_' + bgHeight + '_' + paletteId;
-                if (Text._skinCacheTop && Text._skinCacheKeyTop === cacheKey) {
-                    context.drawImage(Text._skinCacheTop, bgX, bgY);
-                } else {
-                    let offscreen = document.createElement('canvas');
-                    offscreen.width = bgWidth;
-                    offscreen.height = bgHeight;
-                    let offCtx = offscreen.getContext('2d');
-                    let x0 = 0, x1 = fw, x2 = bgWidth - fw;
-                    let y0 = 0, y1 = fh, y2 = bgHeight - fh;
-                    Text.drawSkinBlock(offCtx, skin.fillList[0], x0, y0, fw, fh, palette, skin.isTransparent);
-                    Text.drawSkinBlock(offCtx, skin.fillList[2], x2, y0, fw, fh, palette, skin.isTransparent);
-                    Text.drawSkinBlock(offCtx, skin.fillList[6], x0, y2, fw, fh, palette, skin.isTransparent);
-                    Text.drawSkinBlock(offCtx, skin.fillList[8], x2, y2, fw, fh, palette, skin.isTransparent);
-                    for (let xx = x1; xx < x2; xx += fw) {
-                        let w = Math.min(fw, x2 - xx);
-                        if (w < fw) {
-                            let pixelData = skin.fillList[1];
-                            let sliced = [];
-                            for (let row = 0; row < fh; row++) {
-                                sliced.push(...pixelData.slice(row * fw, row * fw + w));
-                            }
-                            Text.drawSkinBlock(offCtx, sliced, xx, y0, w, fh, palette, skin.isTransparent);
-                        } else {
-                            Text.drawSkinBlock(offCtx, skin.fillList[1], xx, y0, fw, fh, palette, skin.isTransparent);
+                bgY = fontData.width
+            } else if (pos === 'bottom') {
+                bgY = context.canvas.height - bgHeight - fontData.width
+            } else if (pos === 'fullscreen') {
+                // 背景九宮格鋪滿整個畫面
+                let fw = skin.fontWidth, fh = skin.fontHeight
+                let bgX = 0, bgY = 0
+                let bgWidth = context.canvas.width
+                let bgHeight = context.canvas.height
+                let x0 = bgX, x1 = bgX + fw, x2 = bgX + bgWidth - fw
+                let y0 = bgY, y1 = bgY + fh, y2 = bgY + bgHeight - fh
+                // 四角
+                Text.drawSkinBlock(context, skin.fillList[0], x0, y0, fw, fh, palette, skin.isTransparent)
+                Text.drawSkinBlock(context, skin.fillList[2], x2, y0, fw, fh, palette, skin.isTransparent)
+                Text.drawSkinBlock(context, skin.fillList[6], x0, y2, fw, fh, palette, skin.isTransparent)
+                Text.drawSkinBlock(context, skin.fillList[8], x2, y2, fw, fh, palette, skin.isTransparent)
+                // 上下邊（像素級平舖，最後一格 slice）
+                for (let xx = x1; xx < x2; xx += fw) {
+                    let w = Math.min(fw, x2 - xx)
+                    // 上邊線
+                    if (w < fw) {
+                        let pixelData = skin.fillList[1]
+                        let sliced = []
+                        for (let row = 0; row < fh; row++) {
+                            sliced.push(...pixelData.slice(row * fw, row * fw + w))
                         }
-                        if (w < fw) {
-                            let pixelData = skin.fillList[7];
-                            let sliced = [];
-                            for (let row = 0; row < fh; row++) {
-                                sliced.push(...pixelData.slice(row * fw, row * fw + w));
-                            }
-                            Text.drawSkinBlock(offCtx, sliced, xx, y2, w, fh, palette, skin.isTransparent);
-                        } else {
-                            Text.drawSkinBlock(offCtx, skin.fillList[7], xx, y2, fw, fh, palette, skin.isTransparent);
+                        Text.drawSkinBlock(context, sliced, xx, y0, w, fh, palette, skin.isTransparent)
+                    } else {
+                        Text.drawSkinBlock(context, skin.fillList[1], xx, y0, fw, fh, palette, skin.isTransparent)
+                    }
+                    // 下邊線
+                    if (w < fw) {
+                        let pixelData = skin.fillList[7]
+                        let sliced = []
+                        for (let row = 0; row < fh; row++) {
+                            sliced.push(...pixelData.slice(row * fw, row * fw + w))
                         }
+                        Text.drawSkinBlock(context, sliced, xx, y2, w, fh, palette, skin.isTransparent)
+                    } else {
+                        Text.drawSkinBlock(context, skin.fillList[7], xx, y2, fw, fh, palette, skin.isTransparent)
                     }
-                    for (let yy = y1; yy < y2; yy += fh) {
-                        let h = Math.min(fh, y2 - yy);
-                        Text.drawSkinBlock(offCtx, skin.fillList[3], x0, yy, fw, h, palette, skin.isTransparent);
-                        Text.drawSkinBlock(offCtx, skin.fillList[5], x2, yy, fw, h, palette, skin.isTransparent);
-                    }
-                    for (let xx = x1; xx < x2; xx += fw) {
-                        let w = Math.min(fw, x2 - xx);
-                        for (let yy = y1; yy < y2; yy += fh) {
-                            let h = Math.min(fh, y2 - yy);
-                            Text.drawSkinBlock(offCtx, skin.fillList[4], xx, yy, w, h, palette, skin.isTransparent);
-                        }
-                    }
-                    Text._skinCacheTop = offscreen;
-                    Text._skinCacheKeyTop = cacheKey;
-                    context.drawImage(offscreen, bgX, bgY);
                 }
-                return { bgX, bgY, bgWidth, bgHeight };
-            }
-            // === bottom 分支快取 ===
-            if (pos === 'bottom') {
-                let bgWidth = context.canvas.width - (fontData.width * 2);
-                let bgHeightMultiplier = textScale === 1 ? (actualLinesPerPage <= 2 ? (actualLinesPerPage * 2 + 0.5) : (actualLinesPerPage * 1.5 + 1.5)) : (actualLinesPerPage * 2 + 3);
-                let bgHeight = Math.floor(fontData.height * bgHeightMultiplier);
-                let bgX = fontData.width;
-                let bgY = context.canvas.height - bgHeight - fontData.width;
-                let paletteId = palette && palette.name ? palette.name : '';
-                if (!Text._skinCacheBottom) Text._skinCacheBottom = null;
-                if (!Text._skinCacheKeyBottom) Text._skinCacheKeyBottom = '';
-                let cacheKey = (skin.name || '') + '_' + bgX + '_' + bgY + '_' + bgWidth + '_' + bgHeight + '_' + paletteId;
-                if (Text._skinCacheBottom && Text._skinCacheKeyBottom === cacheKey) {
-                    context.drawImage(Text._skinCacheBottom, bgX, bgY);
-                } else {
-                    let offscreen = document.createElement('canvas');
-                    offscreen.width = bgWidth;
-                    offscreen.height = bgHeight;
-                    let offCtx = offscreen.getContext('2d');
-                    let x0 = 0, x1 = fw, x2 = bgWidth - fw;
-                    let y0 = 0, y1 = fh, y2 = bgHeight - fh;
-                    Text.drawSkinBlock(offCtx, skin.fillList[0], x0, y0, fw, fh, palette, skin.isTransparent);
-                    Text.drawSkinBlock(offCtx, skin.fillList[2], x2, y0, fw, fh, palette, skin.isTransparent);
-                    Text.drawSkinBlock(offCtx, skin.fillList[6], x0, y2, fw, fh, palette, skin.isTransparent);
-                    Text.drawSkinBlock(offCtx, skin.fillList[8], x2, y2, fw, fh, palette, skin.isTransparent);
-                    for (let xx = x1; xx < x2; xx += fw) {
-                        let w = Math.min(fw, x2 - xx);
-                        if (w < fw) {
-                            let pixelData = skin.fillList[1];
-                            let sliced = [];
-                            for (let row = 0; row < fh; row++) {
-                                sliced.push(...pixelData.slice(row * fw, row * fw + w));
-                            }
-                            Text.drawSkinBlock(offCtx, sliced, xx, y0, w, fh, palette, skin.isTransparent);
-                        } else {
-                            Text.drawSkinBlock(offCtx, skin.fillList[1], xx, y0, fw, fh, palette, skin.isTransparent);
-                        }
-                        if (w < fw) {
-                            let pixelData = skin.fillList[7];
-                            let sliced = [];
-                            for (let row = 0; row < fh; row++) {
-                                sliced.push(...pixelData.slice(row * fw, row * fw + w));
-                            }
-                            Text.drawSkinBlock(offCtx, sliced, xx, y2, w, fh, palette, skin.isTransparent);
-                        } else {
-                            Text.drawSkinBlock(offCtx, skin.fillList[7], xx, y2, fw, fh, palette, skin.isTransparent);
-                        }
-                    }
-                    for (let yy = y1; yy < y2; yy += fh) {
-                        let h = Math.min(fh, y2 - yy);
-                        Text.drawSkinBlock(offCtx, skin.fillList[3], x0, yy, fw, h, palette, skin.isTransparent);
-                        Text.drawSkinBlock(offCtx, skin.fillList[5], x2, yy, fw, h, palette, skin.isTransparent);
-                    }
-                    for (let xx = x1; xx < x2; xx += fw) {
-                        let w = Math.min(fw, x2 - xx);
-                        for (let yy = y1; yy < y2; yy += fh) {
-                            let h = Math.min(fh, y2 - yy);
-                            Text.drawSkinBlock(offCtx, skin.fillList[4], xx, yy, w, h, palette, skin.isTransparent);
-                        }
-                    }
-                    Text._skinCacheBottom = offscreen;
-                    Text._skinCacheKeyBottom = cacheKey;
-                    context.drawImage(offscreen, bgX, bgY);
+                // 左右邊
+                for (let yy = y1; yy < y2; yy += fh) {
+                    let h = Math.min(fh, y2 - yy)
+                    Text.drawSkinBlock(context, skin.fillList[3], x0, yy, fw, h, palette, skin.isTransparent)
+                    Text.drawSkinBlock(context, skin.fillList[5], x2, yy, fw, h, palette, skin.isTransparent)
                 }
-                return { bgX, bgY, bgWidth, bgHeight };
-            }
-            // === center 分支快取 ===
-            if (pos === 'center') {
-                let bgWidth = context.canvas.width - (fontData.width * 2);
-                let bgHeightMultiplier = textScale === 1 ? (actualLinesPerPage <= 2 ? (actualLinesPerPage * 2 + 0.5) : (actualLinesPerPage * 1.5 + 1.5)) : (actualLinesPerPage * 2 + 3);
-                let bgHeight = Math.floor(fontData.height * bgHeightMultiplier);
-                let bgX = fontData.width;
-                let bgY = Math.floor(context.canvas.height / 2 - bgHeight / 2);
-                let paletteId = palette && palette.name ? palette.name : '';
-                if (!Text._skinCacheCenter) Text._skinCacheCenter = null;
-                if (!Text._skinCacheKeyCenter) Text._skinCacheKeyCenter = '';
-                let cacheKey = (skin.name || '') + '_' + bgX + '_' + bgY + '_' + bgWidth + '_' + bgHeight + '_' + paletteId;
-                if (Text._skinCacheCenter && Text._skinCacheKeyCenter === cacheKey) {
-                    context.drawImage(Text._skinCacheCenter, bgX, bgY);
-                } else {
-                    let offscreen = document.createElement('canvas');
-                    offscreen.width = bgWidth;
-                    offscreen.height = bgHeight;
-                    let offCtx = offscreen.getContext('2d');
-                    let x0 = 0, x1 = fw, x2 = bgWidth - fw;
-                    let y0 = 0, y1 = fh, y2 = bgHeight - fh;
-                    Text.drawSkinBlock(offCtx, skin.fillList[0], x0, y0, fw, fh, palette, skin.isTransparent);
-                    Text.drawSkinBlock(offCtx, skin.fillList[2], x2, y0, fw, fh, palette, skin.isTransparent);
-                    Text.drawSkinBlock(offCtx, skin.fillList[6], x0, y2, fw, fh, palette, skin.isTransparent);
-                    Text.drawSkinBlock(offCtx, skin.fillList[8], x2, y2, fw, fh, palette, skin.isTransparent);
-                    for (let xx = x1; xx < x2; xx += fw) {
-                        let w = Math.min(fw, x2 - xx);
-                        if (w < fw) {
-                            let pixelData = skin.fillList[1];
-                            let sliced = [];
-                            for (let row = 0; row < fh; row++) {
-                                sliced.push(...pixelData.slice(row * fw, row * fw + w));
-                            }
-                            Text.drawSkinBlock(offCtx, sliced, xx, y0, w, fh, palette, skin.isTransparent);
-                        } else {
-                            Text.drawSkinBlock(offCtx, skin.fillList[1], xx, y0, fw, fh, palette, skin.isTransparent);
-                        }
-                        if (w < fw) {
-                            let pixelData = skin.fillList[7];
-                            let sliced = [];
-                            for (let row = 0; row < fh; row++) {
-                                sliced.push(...pixelData.slice(row * fw, row * fw + w));
-                            }
-                            Text.drawSkinBlock(offCtx, sliced, xx, y2, w, fh, palette, skin.isTransparent);
-                        } else {
-                            Text.drawSkinBlock(offCtx, skin.fillList[7], xx, y2, fw, fh, palette, skin.isTransparent);
-                        }
-                    }
+                // 中間
+                for (let xx = x1; xx < x2; xx += fw) {
+                    let w = Math.min(fw, x2 - xx)
                     for (let yy = y1; yy < y2; yy += fh) {
-                        let h = Math.min(fh, y2 - yy);
-                        Text.drawSkinBlock(offCtx, skin.fillList[3], x0, yy, fw, h, palette, skin.isTransparent);
-                        Text.drawSkinBlock(offCtx, skin.fillList[5], x2, yy, fw, h, palette, skin.isTransparent);
+                        let h = Math.min(fh, y2 - yy)
+                        Text.drawSkinBlock(context, skin.fillList[4], xx, yy, w, h, palette, skin.isTransparent)
                     }
-                    for (let xx = x1; xx < x2; xx += fw) {
-                        let w = Math.min(fw, x2 - xx);
-                        for (let yy = y1; yy < y2; yy += fh) {
-                            let h = Math.min(fh, y2 - yy);
-                            Text.drawSkinBlock(offCtx, skin.fillList[4], xx, yy, w, h, palette, skin.isTransparent);
-                        }
-                    }
-                    Text._skinCacheCenter = offscreen;
-                    Text._skinCacheKeyCenter = cacheKey;
-                    context.drawImage(offscreen, bgX, bgY);
                 }
-                return { bgX, bgY, bgWidth, bgHeight };
+                // 讓文字區塊置中，回傳和 center 分支一致的 bgX/bgY/bgWidth/bgHeight
+                let textBgX = fontData.width
+                let textBgWidth = context.canvas.width - (fontData.width * 2)
+                let textScale = window.textScale || 2
+                let bgHeightMultiplier = textScale === 1 ? (actualLinesPerPage <= 2 ? (actualLinesPerPage * 2 + 0.5) : (actualLinesPerPage * 1.5 + 1.5)) : (actualLinesPerPage * 2 + 3)
+                let textBgHeight = Math.floor(fontData.height * bgHeightMultiplier)
+                let textBgY = Math.floor(context.canvas.height / 2 - textBgHeight / 2)
+                return { bgX: textBgX, bgY: textBgY, bgWidth: textBgWidth, bgHeight: textBgHeight }
+            } else if (pos === 'center') {
+                bgY = Math.floor(context.canvas.height / 2 - bgHeight / 2)
+            } else {
+                return { bgX: 0, bgY: 0, bgWidth: 0, bgHeight: 0 }
             }
-            // === fullscreen 分支快取 ===
-            if (pos === 'fullscreen') {
-                let bgX = 0, bgY = 0;
-                let bgWidth = context.canvas.width;
-                let bgHeight = context.canvas.height;
-                let paletteId = palette && palette.name ? palette.name : '';
-                if (!Text._skinCacheFullscreen) Text._skinCacheFullscreen = null;
-                if (!Text._skinCacheKeyFullscreen) Text._skinCacheKeyFullscreen = '';
-                let cacheKey = (skin.name || '') + '_' + bgX + '_' + bgY + '_' + bgWidth + '_' + bgHeight + '_' + paletteId;
-                if (Text._skinCacheFullscreen && Text._skinCacheKeyFullscreen === cacheKey) {
-                    context.drawImage(Text._skinCacheFullscreen, bgX, bgY);
+            // 九宮格座標
+            let fw = skin.fontWidth, fh = skin.fontHeight
+            let x0 = bgX, x1 = bgX + fw, x2 = bgX + bgWidth - fw
+            let y0 = bgY, y1 = bgY + fh, y2 = bgY + bgHeight - fh
+            let wMid = bgWidth - fw * 2, hMid = bgHeight - fh * 2
+            Text.drawSkinBlock(context, skin.fillList[0], x0, y0, fw, fh, palette, skin.isTransparent)
+            Text.drawSkinBlock(context, skin.fillList[2], x2, y0, fw, fh, palette, skin.isTransparent)
+            Text.drawSkinBlock(context, skin.fillList[6], x0, y2, fw, fh, palette, skin.isTransparent)
+            Text.drawSkinBlock(context, skin.fillList[8], x2, y2, fw, fh, palette, skin.isTransparent)
+            // 上下邊線（像素級平舖，最後一格 slice）
+            for (let xx = x1; xx < x2; xx += fw) {
+                let w = Math.min(fw, x2 - xx)
+                // 上邊線
+                if (w < fw) {
+                    let pixelData = skin.fillList[1]
+                    let sliced = []
+                    for (let row = 0; row < fh; row++) {
+                        sliced.push(...pixelData.slice(row * fw, row * fw + w))
+                    }
+                    Text.drawSkinBlock(context, sliced, xx, y0, w, fh, palette, skin.isTransparent)
                 } else {
-                    let offscreen = document.createElement('canvas');
-                    offscreen.width = bgWidth;
-                    offscreen.height = bgHeight;
-                    let offCtx = offscreen.getContext('2d');
-                    let x0 = 0, x1 = fw, x2 = bgWidth - fw;
-                    let y0 = 0, y1 = fh, y2 = bgHeight - fh;
-                    Text.drawSkinBlock(offCtx, skin.fillList[0], x0, y0, fw, fh, palette, skin.isTransparent);
-                    Text.drawSkinBlock(offCtx, skin.fillList[2], x2, y0, fw, fh, palette, skin.isTransparent);
-                    Text.drawSkinBlock(offCtx, skin.fillList[6], x0, y2, fw, fh, palette, skin.isTransparent);
-                    Text.drawSkinBlock(offCtx, skin.fillList[8], x2, y2, fw, fh, palette, skin.isTransparent);
-                    for (let xx = x1; xx < x2; xx += fw) {
-                        let w = Math.min(fw, x2 - xx);
-                        if (w < fw) {
-                            let pixelData = skin.fillList[1];
-                            let sliced = [];
-                            for (let row = 0; row < fh; row++) {
-                                sliced.push(...pixelData.slice(row * fw, row * fw + w));
-                            }
-                            Text.drawSkinBlock(offCtx, sliced, xx, y0, w, fh, palette, skin.isTransparent);
-                        } else {
-                            Text.drawSkinBlock(offCtx, skin.fillList[1], xx, y0, fw, fh, palette, skin.isTransparent);
-                        }
-                        if (w < fw) {
-                            let pixelData = skin.fillList[7];
-                            let sliced = [];
-                            for (let row = 0; row < fh; row++) {
-                                sliced.push(...pixelData.slice(row * fw, row * fw + w));
-                            }
-                            Text.drawSkinBlock(offCtx, sliced, xx, y2, w, fh, palette, skin.isTransparent);
-                        } else {
-                            Text.drawSkinBlock(offCtx, skin.fillList[7], xx, y2, fw, fh, palette, skin.isTransparent);
-                        }
-                    }
-                    for (let yy = y1; yy < y2; yy += fh) {
-                        let h = Math.min(fh, y2 - yy);
-                        Text.drawSkinBlock(offCtx, skin.fillList[3], x0, yy, fw, h, palette, skin.isTransparent);
-                        Text.drawSkinBlock(offCtx, skin.fillList[5], x2, yy, fw, h, palette, skin.isTransparent);
-                    }
-                    for (let xx = x1; xx < x2; xx += fw) {
-                        let w = Math.min(fw, x2 - xx);
-                        for (let yy = y1; yy < y2; yy += fh) {
-                            let h = Math.min(fh, y2 - yy);
-                            Text.drawSkinBlock(offCtx, skin.fillList[4], xx, yy, w, h, palette, skin.isTransparent);
-                        }
-                    }
-                    Text._skinCacheFullscreen = offscreen;
-                    Text._skinCacheKeyFullscreen = cacheKey;
-                    context.drawImage(offscreen, bgX, bgY);
+                    Text.drawSkinBlock(context, skin.fillList[1], xx, y0, fw, fh, palette, skin.isTransparent)
                 }
-                // 修正 return，讓 bgX/bgY/bgWidth/bgHeight 與 center 分支一致
-                let textBgX = fontData.width;
-                let textBgWidth = context.canvas.width - (fontData.width * 2);
-                let textScale = window.textScale || 2;
-                let bgHeightMultiplier = textScale === 1 ? (actualLinesPerPage <= 2 ? (actualLinesPerPage * 2 + 0.5) : (actualLinesPerPage * 1.5 + 1.5)) : (actualLinesPerPage * 2 + 3);
-                let textBgHeight = Math.floor(fontData.height * bgHeightMultiplier);
-                let textBgY = Math.floor(context.canvas.height / 2 - textBgHeight / 2);
-                return { bgX: textBgX, bgY: textBgY, bgWidth: textBgWidth, bgHeight: textBgHeight };
+                // 下邊線
+                if (w < fw) {
+                    let pixelData = skin.fillList[7]
+                    let sliced = []
+                    for (let row = 0; row < fh; row++) {
+                        sliced.push(...pixelData.slice(row * fw, row * fw + w))
+                    }
+                    Text.drawSkinBlock(context, sliced, xx, y2, w, fh, palette, skin.isTransparent)
+                } else {
+                    Text.drawSkinBlock(context, skin.fillList[7], xx, y2, fw, fh, palette, skin.isTransparent)
+                }
             }
+            // 左右邊線
+            for (let yy = y1; yy < y2; yy += fh) {
+                let h = Math.min(fh, y2 - yy)
+                Text.drawSkinBlock(context, skin.fillList[3], x0, yy, fw, h, palette, skin.isTransparent)
+                Text.drawSkinBlock(context, skin.fillList[5], x2, yy, fw, h, palette, skin.isTransparent)
+            }
+            // 中間
+            for (let xx = x1; xx < x2; xx += fw) {
+                let w = Math.min(fw, x2 - xx)
+                for (let yy = y1; yy < y2; yy += fh) {
+                    let h = Math.min(fh, y2 - yy)
+                    Text.drawSkinBlock(context, skin.fillList[4], xx, yy, w, h, palette, skin.isTransparent)
+                }
+            }
+            return { bgX, bgY, bgWidth, bgHeight }
         }
         let bgWidth = context.canvas.width - (fontData.width * 2)
         let textScale = window.textScale || 2
@@ -998,8 +744,6 @@ return {
             context.fillRect(bgX, bgY, bgWidth, bgHeight)
         }
 
-        // === 畫完背景後，恢復 globalAlpha，讓後續繪製受 updateDialog 控制 ===
-        context.globalAlpha = prevAlpha;
         return { bgX, bgY, bgWidth, bgHeight }
     },
 
@@ -1025,8 +769,7 @@ return {
             let positionOffset = textScale === 1 ? Math.floor(fw * 0.5) : 0
             let indicatorX = bgX + bgWidth - fw - indicatorWidth + positionOffset
             let indicatorY = bgY + bgHeight - fh - indicatorHeight + positionOffset
-            var patchedIndicator = indicator.map(val => val >= palette.colorList.length ? -1 : val)
-            Text.drawSkinBlock(context, patchedIndicator, indicatorX, indicatorY, indicatorWidth, indicatorHeight, palette, skin.isTransparent);
+            Text.drawSkinBlock(context, indicator, indicatorX, indicatorY, indicatorWidth, indicatorHeight, palette, world.isTransparent)
             return
         }
         // 預設分支
@@ -1170,16 +913,12 @@ return {
     drawSkinBlock: function(context, pixelData, x, y, w, h, palette, isTransparent = true) {
         for (let cy = 0; cy < h; cy++) {
             for (let cx = 0; cx < w; cx++) {
-                let idx = cy * w + cx;
-                let val = pixelData[idx];
-                // 只處理 -1 fallback，其餘 index 只要 palette 有就畫
-                if (val === -1) {
-                    context.fillStyle = palette && palette.colorList ? palette.colorList[0] : '#000';
-                    context.fillRect(x + cx, y + cy, 1, 1);
-                } else if ((isTransparent && val) || (!isTransparent && typeof val === 'number')) {
+                let idx = cy * w + cx
+                let val = pixelData[idx]
+                if ((isTransparent && val) || (!isTransparent && typeof val === 'number')) {
                     if (palette && typeof palette.colorList[val] !== 'undefined') {
-                        context.fillStyle = palette.colorList[val];
-                        context.fillRect(x + cx, y + cy, 1, 1);
+                        context.fillStyle = palette.colorList[val]
+                        context.fillRect(x + cx, y + cy, 1, 1)
                     }
                 }
             }

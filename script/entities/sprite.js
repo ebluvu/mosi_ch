@@ -1,6 +1,6 @@
 let Sprite = {
 
-    create: ({ name, isAvatar, isWall, isItem, isTransparent, spriteWidth, spriteHeight, onPush, onMessage, randomStart, customWidth, customHeight, collisionBox }) => {
+    create: ({ name, isAvatar, isWall, isItem, isTransparent, spriteWidth, spriteHeight, onPush, onMessage, randomStart }) => {
         let newSprite = {
             name: name || '',
             isAvatar: isAvatar || false,
@@ -8,21 +8,9 @@ let Sprite = {
             isItem: isItem || false,
             isTransparent: isTransparent || false,
             colorIndex: 1,
-            width: customWidth || spriteWidth,
-            height: customHeight || spriteHeight,
-            // === 新增：支援不同尺寸精靈 ===
-            baseWidth: spriteWidth,  // 基礎網格尺寸
-            baseHeight: spriteHeight, // 基礎網格尺寸
-            gridWidth: customWidth ? Math.ceil(customWidth / spriteWidth) : 1,  // 佔用網格寬度
-            gridHeight: customHeight ? Math.ceil(customHeight / spriteHeight) : 1, // 佔用網格高度
-            // === 新增：碰撞體設定 ===
-            collisionBox: collisionBox || {
-                x: 0,
-                y: 0,
-                width: customWidth || spriteWidth,
-                height: customHeight || spriteHeight
-            },
-            frameList: [Array((customWidth || spriteWidth) * (customHeight || spriteHeight)).fill(0)],
+            width: spriteWidth,
+            height: spriteHeight,
+            frameList: [Array(spriteWidth * spriteHeight).fill(0)],
             scriptList: {
                 'on-push': onPush || '',
                 'on-message': onMessage || ''
@@ -30,7 +18,7 @@ let Sprite = {
         }
         if (randomStart) {
             newSprite.frameList = [
-                Sprite.randomFrame(customWidth || spriteWidth, customHeight || spriteHeight)
+                Sprite.randomFrame(spriteWidth, spriteHeight)
             ]
         }
         return newSprite
@@ -414,11 +402,12 @@ let Sprite = {
 
         sprite.frameList = sprite.frameList.map(frame => {
             let newFrame = Array(newWidth * newHeight).fill(0)
-            for (let y = 0; y < Math.min(oldHeight, newHeight); y++) {
-                for (let x = 0; x < Math.min(oldWidth, newWidth); x++) {
+            for (let x = 0; x < oldWidth; x++) {
+                for (let y = 0; y < oldHeight; y++) {
                     let oldIndex = y * oldWidth + x
+                    let oldPixelData = frame[oldIndex]
                     let newIndex = y * newWidth + x
-                    newFrame[newIndex] = frame[oldIndex]
+                    newFrame[newIndex] = oldPixelData
                 }
             }
             return newFrame

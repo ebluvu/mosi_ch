@@ -610,20 +610,10 @@ class Main extends Component {
 
         let roomPaletteName = currentRoom.paletteName
         let roomPaletteIndex = paletteList.findIndex(p => p.name === roomPaletteName)
-        // 如果找不到對應的調色盤，自動切換到第一個調色盤
-        if (roomPaletteIndex === -1) {
-            roomPaletteIndex = 0
-            currentRoom.paletteName = paletteList[0]?.name || 'default'
-        }
         let roomPalette = paletteList[roomPaletteIndex]
 
         let roomMusicName = currentRoom.musicName
         let roomMusicIndex = musicList.findIndex(p => p.name === roomMusicName)
-        // 如果找不到對應的音樂，自動切換到第一個音樂
-        if (roomMusicIndex === -1) {
-            roomMusicIndex = 0
-            currentRoom.musicName = musicList[0]?.name || 'default'
-        }
 
         // 防護檢查：確保 spriteList 和 currentSpriteIndex 存在且有效
         if (!spriteList || !Array.isArray(spriteList) || spriteList.length === 0) {
@@ -801,22 +791,8 @@ class Main extends Component {
             h(GraphicListPanel, {
                 closeTab: this.closeTab.bind(this, 'graphicList'),
                 selectGraphic: (index) => {
-                    // 更新目前的插圖索引與類型
-                    const g = graphicList && graphicList[index] ? graphicList[index] : null
-                    if (g) {
-                        this.setState({ currentGraphicIndex: index, graphicType: g.type })
-                        // picture：直接切換到腳本面板（on-show / on-hide）
-                        if (g.type === 'picture') {
-                            this.openScriptTab('graphic')
-                        } else {
-                            // face：維持插圖編輯面板
-                            this.setCurrentTab('graphic')
-                        }
-                    } else {
-                        // 安全回退
-                        this.setState({ currentGraphicIndex: index })
-                        this.setCurrentTab('graphic')
-                    }
+                    this.setState({ currentGraphicIndex: index });
+                    this.setCurrentTab('graphic');
                 },
                 editGraphic: () => this.setCurrentTab('graphic'),
                 addGraphic: (graphic) => World.addGraphic(this, graphic),
@@ -909,11 +885,6 @@ class Main extends Component {
                     } else {
                         if (currentGraphic.paletteName) {
                             let palette = paletteList.find(p => p.name === currentGraphic.paletteName);
-                            // 如果找不到對應的調色盤，自動切換到第一個調色盤
-                            if (!palette && paletteList.length > 0) {
-                                currentGraphic.paletteName = paletteList[0].name;
-                                palette = paletteList[0];
-                            }
                             return palette ? palette.colorList : ['#000000'];
                         }
                         return ['#000000'];
@@ -1060,7 +1031,7 @@ class Main extends Component {
         let spriteButtonSelected = tabVisibility.sprite || tabVisibility.spriteList || (tabVisibility.script && scriptTabType === 'sprite')
         let paletteButtonSelected = tabVisibility.palette || tabVisibility.paletteList
         let musicButtonSelected = tabVisibility.music || tabVisibility.musicList
-        let graphicButtonSelected = tabVisibility.graphic || tabVisibility.graphicList || (tabVisibility.script && scriptTabType === 'graphic')
+        let graphicButtonSelected = (graphicList && graphicList.length > 0 && tabVisibility.graphic) || tabVisibility.graphicList;
 
         let header = tabVisibility.play ? null :
             div({ className: 'editor-header row' }, [

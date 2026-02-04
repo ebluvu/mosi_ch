@@ -326,7 +326,7 @@ function parseTextboxSkin(data, fontData) {
   if (!Number.isInteger(data.fontWidth) || !Number.isInteger(data.fontHeight)) return { error: '缺少或錯誤的字體尺寸 (fontWidth, fontHeight)' }
   if (!Array.isArray(data.fillList) || data.fillList.length !== 9) return { error: 'fillList 必須為 9 個區塊 (目前 ' + (Array.isArray(data.fillList) ? data.fillList.length : '無') + ' 個)' }
   if (!Array.isArray(data.indicatorList) || data.indicatorList.length < 1 || data.indicatorList.length > 4) return { error: 'indicatorList 幀數需 1~4 (目前 ' + (Array.isArray(data.indicatorList) ? data.indicatorList.length : '無') + ' 幀)' }
-  // 已移除尺寸一致性驗證
+  if (fontData && (data.fontWidth !== fontData.width || data.fontHeight !== fontData.height)) return { error: '皮膚字體尺寸 ('+data.fontWidth+'x'+data.fontHeight+') 與當前字體 ('+fontData.width+'x'+fontData.height+') 不符' }
   // 驗證 fillList 每個區塊長度
   let expectPixels = data.fontWidth * data.fontHeight
   for (let i = 0; i < 9; i++) {

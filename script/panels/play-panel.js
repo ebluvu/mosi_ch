@@ -64,7 +64,6 @@ class PlayPanel extends Component {
                 h(DialogPanel, {
                     dialogNodes: currentDialogNodes,
                     scriptInfo: lastDialogScriptInfo,
-                    world: world, // 傳遞world物件
                     closeTab: () => this.setState({ sidePanel: null })
                 })
             ])
@@ -111,59 +110,59 @@ class DialogPanel extends Component {
         }
     }
 
-    render({ dialogNodes, scriptInfo, closeTab, world }, { currentEvent }) {
-        // header內容
-        let sourceName = ''
+    render({ dialogNodes, scriptInfo, closeTab }, { currentEvent }) {
+        // 如果沒有scriptInfo，顯示「目前沒有對話」
         if (!scriptInfo) {
-            sourceName = '對話'
-        } else if (scriptInfo.eventName === 'on-push' || scriptInfo.eventName === 'on-message') {
-            sourceName = scriptInfo.context && scriptInfo.context.sprite ? scriptInfo.context.sprite.name : '精靈'
-        } else if (scriptInfo.eventName === 'on-enter' || scriptInfo.eventName === 'on-exit') {
-            const roomIndex = scriptInfo.context && scriptInfo.context.roomIndex
-            sourceName = (roomIndex !== undefined && world && world.roomList && world.roomList[roomIndex])
-                ? world.roomList[roomIndex].name
-                : '房間'
-        } else if (scriptInfo.eventName === 'on-show' || scriptInfo.eventName === 'on-hide') {
-            const graphicIndex = scriptInfo.context && scriptInfo.context.graphicIndex
-            sourceName = (graphicIndex !== undefined && world && world.graphicList && world.graphicList[graphicIndex])
-                ? world.graphicList[graphicIndex].name
-                : '插圖'
-        } else if (scriptInfo.eventName === 'on-start') {
-            sourceName = world && world.worldName ? world.worldName : '世界'
-        } else {
-            sourceName = '對話'
-        }
-        // 沒有對話時
-        if (!scriptInfo) {
-            return panel({ header: 'script', closeTab }, [
-                '（目前沒有對話）'
+            return div({ className: 'dialog-panel' }, [
+                div({ className: 'panel-header' }, [
+                    span({}, '對話'),
+                    span({}, button({
+                        onclick: closeTab,
+                        className: 'simple icon'
+                    }, '×'))
+                ]),
+                div({ className: 'panel-content' }, [
+                    div({ className: 'dialog-content' }, '（目前沒有對話）')
+                ])
             ])
         }
-        // 有對話時
+
+        // 取得來源名稱
+        let sourceName = ''
+        if (scriptInfo.sourceType === 'sprite') {
+            sourceName = scriptInfo.context && scriptInfo.context.sprite ? scriptInfo.context.sprite.name : '精靈'
+        } else if (scriptInfo.sourceType === 'room') {
+            sourceName = scriptInfo.context && scriptInfo.context.roomIndex !== undefined ? `房間 ${scriptInfo.context.roomIndex + 1}` : '房間'
+        } else {
+            sourceName = '世界'
+        }
+
+        // 建立事件按鈕（類似script-panel）
         let eventButtons = [
             button({
                 className: 'simple fill' + (currentEvent === scriptInfo.eventName ? ' selected' : ''),
                 onclick: () => this.setState({ currentEvent: scriptInfo.eventName })
-            }, '> ' + sourceName + ' ★')
+            }, '> ' + scriptInfo.eventName.replace('-', ' ') + ' ★')
         ]
-        return panel({ header: 'script', closeTab }, [
-            row([
-                eventButtons
+
+        return div({ className: 'dialog-panel' }, [
+            div({ className: 'panel-header' }, [
+                span({}, sourceName),
+                span({}, button({
+                    onclick: closeTab,
+                    className: 'simple icon'
+                }, '×'))
             ]),
-            div({
-                style: {
-                    fontFamily: 'monospace',
-                    whiteSpace: 'pre-wrap',
-                    background: '#f8f8f8',
-                    padding: 8,
-                    borderRadius: 4,
-                    maxHeight: (window.innerWidth <= 600 ? '200px' : '400px'),
-                    overflowY: 'scroll',
-                    WebkitOverflowScrolling: 'touch'
-                }
-            },
-                scriptInfo.script
-            )
+            div({ className: 'panel-content' }, [
+                row([
+                    eventButtons
+                ]),
+                div({ className: 'dialog-content' }, [
+                    div({ style: { fontFamily: 'monospace', whiteSpace: 'pre-wrap', background: '#f8f8f8', padding: 8, borderRadius: 4 } },
+                        scriptInfo.script
+                    )
+                ])
+            ])
         ])
     }
 }
