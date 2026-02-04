@@ -11,9 +11,7 @@ class SpriteCanvas extends Component {
                 let x = Math.floor(i % width)
                 let y = Math.floor(i / width)
                 if (paletteIndex === 0 && isTransparent) return
-                // 修正：所有超出範圍的顏色都使用最後一個顏色，而不是純黑色
-                let safeIndex = Math.min(paletteIndex, colorList.length - 1)
-                context.fillStyle = colorList[safeIndex] || '#000000'
+                context.fillStyle = colorList[paletteIndex] || '#000000'
                 context.fillRect(x, y, 1, 1)
             })
         }

@@ -59,8 +59,7 @@ class WorldPanel extends Component {
         // 主體顏色設定
         mainPaletteIndex,
         mainBgColorIndex,
-        mainTextColorIndex,
-        textboxSkin
+        mainTextColorIndex
     }, {
         showImportOverlay,
         showExportOverlay,
@@ -192,29 +191,17 @@ class WorldPanel extends Component {
             onclick: () => this.setState({ showExtrasOverlay: false, showFontOverlay: true })
         }, '字體設定')
 
-        let setTextboxSkin = this.props.setTextboxSkin;
         let fontOverlay = !showFontOverlay ? null :
             h(FontOverlay, {
-                setTextboxSkin: setTextboxSkin,
-                textboxSkin: textboxSkin,
                 fontResolution,
                 fontDirection,
                 fontData,
                 textScale,
-                dialogMaxLines: this.props.dialogMaxLines || 2,
-                setDialogMaxLines: (value) => {
-                    // 更新世界數據中的 dialogMaxLines
-                    if (this.props.setDialogMaxLines) {
-                        this.props.setDialogMaxLines(value)
-                    }
-                    // 同時更新 window 變數以保持向後相容
-                    window.dialogMaxLines = value
-                },
-                closeOverlay: () => this.setState({ showFontOverlay: false }),
                 setFontResolution,
                 setFontDirection,
                 setFontData,
-                setTextScale
+                setTextScale,
+                closeOverlay: () => this.setState({ showFontOverlay: false })
             })
 
         let mainColorButton = button({

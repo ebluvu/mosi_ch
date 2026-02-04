@@ -146,16 +146,7 @@ class Panel extends Component {
         props.className = 'panel ' + (props.className ? props.className : '')
         props.ref = node => { this.node = node }
         return div(props, [
-            div({
-                className: 'panel-header',
-                draggable: true,
-                style: { cursor: 'move' },
-                ondragstart: e => {
-                    e.dataTransfer.effectAllowed = 'move';
-                    e.dataTransfer.setData('text/plain', props.id || props.header || '');
-                    if (window._panelDrag) window._panelDrag(props.id || props.header || '');
-                }
-            }, [
+            div({ className: 'panel-header' }, [
                 span({}, icon(props.header)),
                 span({}, button({
                     onclick: props.closeTab,
@@ -318,31 +309,4 @@ let helpLink = (wikiPage, className) => {
     return div({ className: className || 'help-link' }, [
         link({ href: 'https://github.com/zenzoa/mosi/wiki/' + wikiPage }, '更多資訊')
     ])
-}
-
-function parseTextboxSkin(data, fontData) {
-  if (!data || typeof data !== 'object') return { error: '資料格式錯誤：不是物件' }
-  if (!data.name) return { error: '缺少皮膚名稱 (name)' }
-  if (!Number.isInteger(data.fontWidth) || !Number.isInteger(data.fontHeight)) return { error: '缺少或錯誤的字體尺寸 (fontWidth, fontHeight)' }
-  if (!Array.isArray(data.fillList) || data.fillList.length !== 9) return { error: 'fillList 必須為 9 個區塊 (目前 ' + (Array.isArray(data.fillList) ? data.fillList.length : '無') + ' 個)' }
-  if (!Array.isArray(data.indicatorList) || data.indicatorList.length < 1 || data.indicatorList.length > 4) return { error: 'indicatorList 幀數需 1~4 (目前 ' + (Array.isArray(data.indicatorList) ? data.indicatorList.length : '無') + ' 幀)' }
-  // 已移除尺寸一致性驗證
-  // 驗證 fillList 每個區塊長度
-  let expectPixels = data.fontWidth * data.fontHeight
-  for (let i = 0; i < 9; i++) {
-    if (!Array.isArray(data.fillList[i]) || data.fillList[i].length !== expectPixels) {
-      return { error: 'fillList['+i+'] 長度錯誤，應為 '+expectPixels+'，實際為 '+(Array.isArray(data.fillList[i]) ? data.fillList[i].length : '無') }
-    }
-  }
-  // 驗證 indicatorList 每個區塊長度
-  for (let i = 0; i < data.indicatorList.length; i++) {
-    if (!Array.isArray(data.indicatorList[i]) || data.indicatorList[i].length !== expectPixels) {
-      return { error: 'indicatorList['+i+'] 長度錯誤，應為 '+expectPixels+'，實際為 '+(Array.isArray(data.indicatorList[i]) ? data.indicatorList[i].length : '無') }
-    }
-  }
-  // 新增：補上 isTransparent 屬性，預設 true
-  if (typeof data.isTransparent !== 'boolean') {
-    data.isTransparent = true;
-  }
-  return { skin: data }
 }

@@ -4,8 +4,7 @@ class SpritePanel extends Component {
         this.state = {
             currentFrameIndex: 0,
             showGrid: false,
-            currentColorIndex: 1,
-            currentTool: 'pen' // 新增：預設為畫筆
+            currentColorIndex: 1
         }
     }
 
@@ -311,6 +310,12 @@ class SpritePanel extends Component {
                 closeOverlay: () => this.setState({ showFrameExtrasOverlay: false })
             })
     
+        let drawPixel = (pixelIndex, newValue) => {
+            let frame = currentFrame.slice()
+            frame[pixelIndex] = newValue
+            updateFrame(currentFrameIndex, frame)
+        }
+
         let prevFrame
         if (frameList.length > 1) {
             if (currentFrameIndex > 0) {
@@ -332,39 +337,18 @@ class SpritePanel extends Component {
             })
         )
 
-        // 工具列（畫筆/油漆桶）
-        let toolBar = row([
-            iconButton({
-                title: '畫筆',
-                className: 'simple' + (this.state.currentTool === 'pen' ? ' selected' : ''),
-                onclick: () => this.setState({ currentTool: 'pen' })
-            }, 'pen'),
-            iconButton({
-                title: '油漆桶',
-                className: 'simple' + (this.state.currentTool === 'bucket' ? ' selected' : ''),
-                onclick: () => this.setState({ currentTool: 'bucket' })
-            }, 'bucket')
-        ])
-
         let spriteGrid = h(SpriteGrid, {
             width,
             height,
             frame: currentFrame,
-            prevFrame, // 傳遞前一幀，支援 onion skin
             colorList,
             isTransparent,
             showGrid: this.state.showGrid,
             currentColorIndex: this.state.currentColorIndex,
-            currentTool: this.state.currentTool, // 傳遞工具
             drawPixel: (pixelIndex, newValue) => {
                 let frame = currentFrame.slice()
-                if (pixelIndex === -1 && Array.isArray(newValue)) {
-                    // 整幀替換（用於油漆桶）
-                    updateFrame(currentFrameIndex, newValue.slice())
-                } else {
-                    frame[pixelIndex] = newValue
-                    updateFrame(currentFrameIndex, frame)
-                }
+                frame[pixelIndex] = newValue
+                updateFrame(currentFrameIndex, frame)
             }
         })
     
@@ -382,11 +366,9 @@ class SpritePanel extends Component {
                 itemButton,
                 wallButton
             ]),
-            row([
+            row(
                 paletteSelector,
-                fill(),
-                toolBar, // 插入工具列
-            ]),
+            ),
             hr(),
             div({ className: 'grid-container' }, [
                 spriteGrid,

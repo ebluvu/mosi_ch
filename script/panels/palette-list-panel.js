@@ -16,26 +16,16 @@ class PaletteList extends Component {
     }, {
         showImportOverlay
     }) {
-        let paletteButtonList = paletteList
-            .map((palette, i) => ({ palette, i }))
-            .sort((a, b) => {
-                // 按名稱排序
-                let nameA = a.palette.name.toUpperCase()
-                let nameB = b.palette.name.toUpperCase()
-                if (nameA < nameB) return -1
-                if (nameA > nameB) return 1
-                return 0
+        let paletteButtonList = paletteList.map((palette, i) => {
+            return paletteButton({
+                className: i === currentPaletteIndex ? 'initial-focus' : '',
+                onclick: () => {
+                    selectPalette(i, 'palette')
+                },
+                isSelected: (i === currentPaletteIndex),
+                palette
             })
-            .map(({ palette, i }) => {
-                return paletteButton({
-                    className: i === currentPaletteIndex ? 'initial-focus' : '',
-                    onclick: () => {
-                        selectPalette(i, 'palette')
-                    },
-                    isSelected: (i === currentPaletteIndex),
-                    palette
-                })
-            })
+        })
 
         let addPaletteButton = !addPalette ? null :
             iconButton({

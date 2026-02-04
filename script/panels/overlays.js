@@ -247,18 +247,6 @@ class TilePickerOverlay extends Component {
 }
 
 class FontOverlay extends Component {
-    constructor() {
-        super()
-        this.state = {
-            showImportFontOverlay: false,
-            showResetFontOverlay: false,
-            showErrorOverlay: false,
-            errorMessage: '',
-            showImportTextboxSkinOverlay: false,
-            showResetTextboxSkinOverlay: false
-        }
-    }
-
     render({
         closeOverlay,
         setFontResolution,
@@ -268,16 +256,10 @@ class FontOverlay extends Component {
         fontResolution,
         fontDirection,
         fontData,
-        textScale,
-        textboxSkin,
-        setTextboxSkin,
-        dialogMaxLines,
-        setDialogMaxLines
+        textScale
     }, {
         showImportFontOverlay,
-        showResetFontOverlay,
-        showImportTextboxSkinOverlay,
-        showResetTextboxSkinOverlay
+        showResetFontOverlay
     }) {
         let importFontButton =
             button({
@@ -309,7 +291,7 @@ class FontOverlay extends Component {
                 header: '重設為預設字體?',
                 closeOverlay: () => this.setState({ showResetFontOverlay: false }),
                 remove: () => {
-                    let fontData = Font.parse(BOUTIQUE_BITMAP_7X7)
+                    let fontData = Font.parse(ASCII_TINY)
                     setFontData(fontData)
                     this.setState({ showResetFontOverlay: false })
                 }
@@ -340,101 +322,8 @@ class FontOverlay extends Component {
             h('option', { value: option.value }, option.label)
         ))
 
-        // 對話框最大行數設定
-        let dialogMaxLinesInput = numbox({
-            value: dialogMaxLines || 2,
-            min: 2,
-            max: 10,
-            onchange: e => {
-                let value = parseInt(e.target.value)
-                if (value >= 2 && value <= 10) {
-                    setDialogMaxLines(value)
-                } else {
-                    // 如果輸入無效，恢復為當前值
-                    e.target.value = dialogMaxLines || 2
-                }
-            },
-            onblur: e => {
-                let value = parseInt(e.target.value)
-                if (isNaN(value) || value < 2 || value > 10) {
-                    e.target.value = dialogMaxLines || 2
-                }
-            },
-            onkeydown: e => {
-                // 只允許數字、退格鍵、刪除鍵、方向鍵、Tab鍵、Enter鍵
-                let allowedKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']
-                let isNumber = /^\d$/.test(e.key)
-                let isAllowedKey = allowedKeys.includes(e.key)
-                
-                if (!isNumber && !isAllowedKey) {
-                    e.preventDefault()
-                }
-            }
-        })
-
-        // 匯入對話框皮膚按鈕
-        let importTextboxSkinButton =
-            button({
-                className: 'fill',
-                onclick: () => this.setState({ showImportTextboxSkinOverlay: true })
-            }, '匯入對話框皮膚')
-
-        let importTextboxSkinOverlay = !this.state?.showImportTextboxSkinOverlay ? null :
-            h(ImportOverlay, {
-                header: '匯入對話框皮膚',
-                onImport: data => {
-                    try {
-                        let parsed = typeof data === 'string' ? JSON.parse(data) : data;
-                        let result = parseTextboxSkin(parsed, fontData)
-                        if (result.error) {
-                            this.setState({ showErrorOverlay: true, errorMessage: '皮膚匯入失敗：' + result.error })
-                        } else {
-                            if (!setTextboxSkin) {
-                                this.setState({ showErrorOverlay: true, errorMessage: 'setTextboxSkin 未正確傳入，無法設定 textboxSkin' });
-                                return;
-                            }
-                            setTextboxSkin(result.skin)
-                            this.setState({ showImportTextboxSkinOverlay: false })
-                        }
-                    } catch (err) {
-                        this.setState({ showErrorOverlay: true, errorMessage: '檔案格式錯誤，無法解析。' })
-                    }
-                },
-                fileType: '.mositextbox',
-                closeOverlay: () => this.setState({ showImportTextboxSkinOverlay: false })
-            })
-
-        // 還原對話框皮膚按鈕
-        let resetTextboxSkinButton =
-            button({
-                className: 'fill',
-                onclick: () => this.setState({ showResetTextboxSkinOverlay: true })
-            }, '還原對話框皮膚')
-
-        let resetTextboxSkinOverlay = !this.state?.showResetTextboxSkinOverlay ? null :
-            h(RemoveOverlay, {
-                header: '還原為無皮膚狀態?',
-                closeOverlay: () => this.setState({ showResetTextboxSkinOverlay: false }),
-                remove: () => {
-                    if (!setTextboxSkin) {
-                        this.setState({ showErrorOverlay: true, errorMessage: 'setTextboxSkin 未正確傳入，無法還原 textboxSkin' });
-                        return;
-                    }
-                    setTextboxSkin(null)
-                    this.setState({ showResetTextboxSkinOverlay: false })
-                }
-            })
-
-        // 防呆：確保 textboxSkin 有值
-        const currentSkin = textboxSkin;
-
         return overlay({ closeOverlay, header: '字體設定' }, [
             row([ span({}, ['當前字體: ', strong(fontData.name)]) ]),
-            row([ span({}, [
-                '當前對話框皮膚: ',
-                strong(currentSkin ? currentSkin.name : '無'),
-                currentSkin ? (currentSkin.isTransparent ? '（透明）' : '（不透明）') : ''
-            ]) ]),
             row([
                 span({ className: 'label' }, '文字縮放'),
                 span({}, '×'),
@@ -448,21 +337,9 @@ class FontOverlay extends Component {
                 span({ className: 'label' }, '文字比例'),
                 textScaleDropdown
             ]),
-            row([
-                span({ className: 'label' }, '對話框最大行數'),
-                dialogMaxLinesInput
-            ]),
             row([ importFontButton, resetFontButton ]),
-            row([importTextboxSkinButton,resetTextboxSkinButton]),
             importFontOverlay,
-            resetFontOverlay,
-            importTextboxSkinOverlay,
-            resetTextboxSkinOverlay,
-            this.state.showErrorOverlay ?
-                h(ErrorOverlay, {
-                    errorMessage: this.state.errorMessage,
-                    closeOverlay: () => this.setState({ showErrorOverlay: false })
-                }) : null
+            resetFontOverlay
         ])
     }
 }
@@ -805,16 +682,9 @@ class VariableSettingOverlay extends Component {
     }
     componentWillMount() {
         const { varName, variable } = this.props
-        // 如果 type 是 "boolean" 或 value 是 "true"/"false"，視為布林值變量（但實際保存時 type 應該是 "string"）
-        let varType = variable.type
-        if (varType === 'boolean' || (varType === 'string' && (variable.value === 'true' || variable.value === 'false'))) {
-            varType = 'boolean' // UI 顯示用，但保存時會轉為 "string"
-        } else {
-            varType = varType || (typeof variable.value === 'boolean' ? 'boolean' : 'number')
-        }
         this.setState({
             name: varName,
-            type: varType
+            type: variable.type || (typeof variable.value === 'boolean' ? 'boolean' : 'number')
         })
     }
     onNameChange(e) {
@@ -835,8 +705,7 @@ class VariableSettingOverlay extends Component {
     }
     onTypeToggle() {
         let newType = this.state.type === 'number' ? 'boolean' : 'number'
-        // 布林值應該保存為字串 "true" 或 "false"，這樣 {var} 表達式才能正確返回，{if} 才能正確判斷
-        let newValue = newType === 'number' ? 0 : 'true'
+        let newValue = newType === 'number' ? 0 : true
         this.setState({ type: newType }, () => {
             this.props.onSave && this.props.onSave(this.props.varName, this.state.name, newType, newValue, false)
         })
@@ -1006,18 +875,6 @@ class ConfigureGroupOverlay extends Component {
                     default: return true
                 }
             })
-            // 按名稱排序，主角始終在第一位
-            .sort((s1, s2) => {
-                // 主角始終在第一位
-                if (s1.isAvatar && !s2.isAvatar) return -1
-                if (!s1.isAvatar && s2.isAvatar) return 1
-                // 其他精靈按名稱排序
-                let name1 = s1.name.toUpperCase()
-                let name2 = s2.name.toUpperCase()
-                if (name1 < name2) return -1
-                if (name1 > name2) return 1
-                else return 0
-            })
 
         const toggleSelectAll = () => {
             const visibleSpriteNames = visibleSprites.map(s => s.name)
@@ -1059,8 +916,8 @@ class ConfigureGroupOverlay extends Component {
                 ]),
                 div({ className: 'row', style: { 'justify-content': 'center', 'margin-top': '8px' } }, [
                     iconButton({ title: '全部', className: category === 'all' ? 'selected' : '', onclick: () => setCategory('all') }, 'world'),
+                    iconButton({ title: '主角', className: category === 'avatar' ? 'selected' : '', onclick: () => setCategory('avatar') }, 'sprite'),
                     iconButton({ title: '精靈', className: category === 'sprite' ? 'selected' : '', onclick: () => setCategory('sprite') }, 'sprites'),
-                    iconButton({ title: '對話', className: category === 'dialog' ? 'selected' : '', onclick: () => setCategory('dialog') }, 'script'),
                     iconButton({ title: '道具', className: category === 'item' ? 'selected' : '', onclick: () => setCategory('item') }, 'item'),
                     iconButton({ title: '牆', className: category === 'wall' ? 'selected' : '', onclick: () => setCategory('wall') }, 'wall'),
                 ]),
@@ -1104,30 +961,16 @@ class EditSpritesOverlay extends Component {
         }
 
         const toggleSelectAll = () => {
-            const visibleSprites = spriteList.filter(({ name, isAvatar, isItem, isWall, scriptList }) => {
+            const visibleSprites = spriteList.filter(({ name, isAvatar, isItem, isWall }) => {
                 if (filter && !name.includes(filter)) return false
                 switch (category) {
                     case 'all': return true
-                    case 'dialog':
-                        if (!scriptList) return false
-                        return (scriptList['on-push'] && scriptList['on-push'].trim()) || (scriptList['on-message'] && scriptList['on-message'].trim())
+                    case 'avatar': return isAvatar
                     case 'sprite': return !isAvatar && !isItem && !isWall
                     case 'item': return isItem
                     case 'wall': return isWall
                     default: return true
                 }
-            })
-            // 按名稱排序，主角始終在第一位
-            .sort((s1, s2) => {
-                // 主角始終在第一位
-                if (s1.isAvatar && !s2.isAvatar) return -1
-                if (!s1.isAvatar && s2.isAvatar) return 1
-                // 其他精靈按名稱排序
-                let name1 = s1.name.toUpperCase()
-                let name2 = s2.name.toUpperCase()
-                if (name1 < name2) return -1
-                if (name1 > name2) return 1
-                else return 0
             })
             const visibleSpriteNames = visibleSprites.map(s => s.name)
             const allSelected = visibleSpriteNames.every(name => selectedSpriteNames.includes(name))
@@ -1164,30 +1007,16 @@ class EditSpritesOverlay extends Component {
             }
         }
 
-        const visibleSprites = spriteList.filter(({ name, isAvatar, isItem, isWall, scriptList }) => {
+        const visibleSprites = spriteList.filter(({ name, isAvatar, isItem, isWall }) => {
             if (filter && !name.includes(filter)) return false
             switch (category) {
                 case 'all': return true
-                case 'dialog':
-                    if (!scriptList) return false
-                    return (scriptList['on-push'] && scriptList['on-push'].trim()) || (scriptList['on-message'] && scriptList['on-message'].trim())
+                case 'avatar': return isAvatar
                 case 'sprite': return !isAvatar && !isItem && !isWall
                 case 'item': return isItem
                 case 'wall': return isWall
                 default: return true
             }
-        })
-        // 按名稱排序，主角始終在第一位
-        .sort((s1, s2) => {
-            // 主角始終在第一位
-            if (s1.isAvatar && !s2.isAvatar) return -1
-            if (!s1.isAvatar && s2.isAvatar) return 1
-            // 其他精靈按名稱排序
-            let name1 = s1.name.toUpperCase()
-            let name2 = s2.name.toUpperCase()
-            if (name1 < name2) return -1
-            if (name1 > name2) return 1
-            else return 0
         })
 
         const spriteElements = visibleSprites.map(sprite => {
@@ -1222,8 +1051,8 @@ class EditSpritesOverlay extends Component {
                 ]),
                 div({ className: 'row', style: { 'justify-content': 'center', 'margin-top': '8px' } }, [
                     iconButton({ title: '全部', className: category === 'all' ? 'selected' : '', onclick: () => setCategory('all') }, 'world'),
+                    iconButton({ title: '主角', className: category === 'avatar' ? 'selected' : '', onclick: () => setCategory('avatar') }, 'sprite'),
                     iconButton({ title: '精靈', className: category === 'sprite' ? 'selected' : '', onclick: () => setCategory('sprite') }, 'sprites'),
-                    iconButton({ title: '對話', className: category === 'dialog' ? 'selected' : '', onclick: () => setCategory('dialog') }, 'script'),
                     iconButton({ title: '道具', className: category === 'item' ? 'selected' : '', onclick: () => setCategory('item') }, 'item'),
                     iconButton({ title: '牆', className: category === 'wall' ? 'selected' : '', onclick: () => setCategory('wall') }, 'wall'),
                 ]),
@@ -1231,37 +1060,6 @@ class EditSpritesOverlay extends Component {
                 div({ className: 'spritelist' }, spriteElements),
                 removeOverlay
             ])
-        ])
-    }
-}
-
-// === Graphic 專用 Overlays ===
-
-class GraphicImportOverlay extends Component {
-    render({ closeOverlay, onImport }) {
-        return overlay({ closeOverlay, header: '匯入圖片' }, [
-            h(ImportOverlay, {
-                onImport,
-                closeOverlay,
-                header: '匯入圖片',
-                fileType: '.mosigraphic'
-            })
-        ])
-    }
-}
-
-class GraphicExtrasOverlay extends Component {
-    render({ closeOverlay, content, buttons }) {
-        return overlay({ closeOverlay, header: '圖片設定' }, [
-            div({ className: 'extras-overlay content' }, content ? content : buttons)
-        ])
-    }
-}
-
-class GraphicFrameExtrasOverlay extends Component {
-    render({ closeOverlay, content, buttons }) {
-        return overlay({ closeOverlay, header: '動畫幀設定' }, [
-            div({ className: 'extras-overlay content' }, content ? content : buttons)
         ])
     }
 }
