@@ -20,7 +20,7 @@ let Files = {
             filename = filename.replace(/\s+/g, '_')
             
             let downloadLink = document.createElement('a')
-            downloadLink.download = filename
+            downloadLink.download = encodeURIComponent(filename)
             downloadLink.href = blobURL
             document.body.appendChild(downloadLink)
             downloadLink.click()

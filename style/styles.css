@@ -154,6 +154,7 @@ canvas {
 }
 
 .grid-highlight {
+    z-index: 1;
     position: absolute;
     border-radius: 4px;
     box-shadow: 0 0 0 4px black;
@@ -190,31 +191,9 @@ canvas {
     background: rgba(0,0,0,0.5);
 }
 
-.hover-highlight {
-    position: absolute;
-    pointer-events: none;
-    box-shadow: 0 0 2px rgba(255,255,255,0.8);
-    filter: invert(100%);
-}
-
-.grid-controls {
-    z-index: 10;
-    position: absolute;
-    bottom: 8px;
-    right: 8px;
-}
-
+.room-grid:not(:focus) .grid-highlight,
 .sprite-grid:not(:focus) .grid-highlight {
     display: none;
-}
-
-.graphic-grid:focus {
-    outline-color: transparent;
-    outline-style: none;
-}
-
-.graphic-grid:focus .grid-highlight {
-    display: block !important;
 }
 
 .row {
@@ -372,9 +351,8 @@ textarea:focus {
         0 2px 0 2px var(--focus-color);
 }
 
-/* 隱藏原生檔案選擇器 */
 input[type="file"] {
-    display: none;
+    background: var(--button-bg);
 }
 
 .color-textbox {
@@ -409,6 +387,7 @@ textarea {
 }
 
 button,
+input[type="file"],
 .dropdown {
     transform: translateY(-2px);
     min-width: var(--button-size);
@@ -535,19 +514,12 @@ a:focus {
     width: 1px;
 }
 
-.multi-tab-mode .drag-panel {
+.multi-tab-mode .panel {
     margin-right: var(--big-padding);
-    flex-basis: 403px;
-    flex-shrink: 0;
 }
 
-.multi-tab-mode .drag-panel:first-child {
+.multi-tab-mode .panel:first-child {
     margin-left: var(--big-padding);
-}
-
-.multi-tab-mode .drag-panel.drag-over .panel {
-    outline: 3px solid hotpink;
-    border-radius: var(--big-radius);
 }
 
 .multi-tab-mode .panel-header {
@@ -581,10 +553,11 @@ span.label {
     cursor: pointer;
 }
 
-.room-grid {
-    margin: 0
+.grid:focus {
+    /* box-shadow: 0 0 0 2px var(--focus-color); */
 }
-.graphic-grid {
+
+.room-grid {
     margin: 0
 }
 .room-block {
@@ -882,18 +855,18 @@ svg.logo {
     height: 100%;
 }
 .play-canvas {
-    /* flex: 1 1 0; */
-    min-width: 650px;
-    min-height: 650px;
-    /* margin-right: var(--big-padding); */
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 400px;
+    margin-right: var(--big-padding);
 }
-/* #inventoryPanel.panel {
+#inventoryPanel.panel {
     width: 100%;
     height: 100%;
     min-height: 400px;
     box-sizing: border-box;
     overflow-y: auto;
-} */
+}
 
 .flash {
     animation: flashAnim 0.5s;
@@ -904,6 +877,10 @@ svg.logo {
 }
 
 @media (max-width: 700px), (max-device-width: 700px) {
+    .play-panel.with-inventory {
+        flex-direction: column;
+        align-items: stretch;
+    }
     .play-canvas {
         width: 100% !important;
         min-width: 0;
@@ -917,118 +894,4 @@ svg.logo {
         min-height: 120px;
         flex: 0.5 1 0;
     }
-    
-    /* 行動版只供檢視面板樣式 */
-    .play-panel {
-        flex-direction: column !important;
-        align-items: stretch !important;
-        gap: 8px !important;
-    }
-    
-    .side-panel {
-        flex-basis: auto !important;
-        flex-shrink: 1 !important;
-        margin-right: 0 !important;
-        width: 100% !important;
-        max-width: 100vw !important;
-        min-height: 120px !important;
-        order: 2 !important; /* 確保在遊戲畫面下方 */
-    }
-    
-    .play-canvas {
-        order: 1 !important; /* 確保遊戲畫面在上方 */
-        width: 100% !important;
-        min-width: 0 !important;
-        min-height: 200px !important;
-        max-width: 100vw !important;
-    }
-}
-
-/* #spriteListPanel.panel {
-    width: 100%;
-    height: 100%;
-    min-height: 400px;
-    box-sizing: border-box;
-    overflow-y: auto;
-} */
-
-.spritelist {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    align-items: flex-start;
-    max-height: 450px;
-    overflow-y: auto;
-}
-
-.inventory-content {
-    max-height: 500px;
-    overflow-y: auto;
-}
-
-@media (max-width: 600px), (max-device-width: 600px) {
-    .inventory-content {
-        max-height: 200px;
-    }
-}
-
-.dialog-content {
-    max-height: 500px;
-    overflow-y: auto;
-}
-
-/* Custom Scrollbar for Sprite List Panel */
-::-webkit-scrollbar {
-    width: 3px;
-    height: 30px;
-}
-
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-    background: #666666;
-    border: 8px solid #666666;
-    border-radius: 20px;
-}
-
-:hover::-webkit-scrollbar-thumb {
-    background: #88888888;
-    border: 8px solid #666666;
-}
-
-textarea::-webkit-scrollbar {
-    width: 8px !important;
-    height: 8px;
-}
-
-/* 只供檢視面板專用樣式 */
-.side-panel {
-    flex-basis: 380px;
-    flex-shrink: 0;
-    margin-right: var(--big-padding);
-}
-
-.side-panel .panel-header {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    height: var(--button-height);
-    padding-left: calc(var(--big-padding) * 2);
-    border-top-left-radius: var(--big-radius);
-    border-top-right-radius: var(--big-radius);
-    background: var(--overlay-header-bg);
-    justify-content: space-between;
-}
-
-.side-panel .panel-content {
-    border-bottom-left-radius: var(--big-radius);
-    border-bottom-right-radius: var(--big-radius);
-    background: var(--main-bg);
-}
-
-.row > span {
-    margin: var(--small-padding);
-    white-space: nowrap;
 }

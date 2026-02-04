@@ -16,24 +16,8 @@ class Main extends Component {
             errorState: '',
             spritePalette: [0, 1, 2, 3],
             inventory: {},
-            variables: {},
-            customSpriteGroups: [],
-            // 新增 graphic 狀態
-            graphicList: [],
-            currentGraphicIndex: 0,
-            graphicType: 'picture', // 新增
-            // 新增對話框皮膚狀態
-            textboxSkin: null,
-            // 新增對話框最大行數設定
-            dialogMaxLines: 2,
+            variables: {}
         }
-
-        this.panelOrder = [
-            'welcome', 'world', 'room', 'spriteList', 'sprite', 'graphicList', 'graphic', 'script', 'paletteList', 'palette', 'musicList', 'music', 'inventory'
-        ];
-        this.draggingPanel = null;
-        this.dragOverPanel = null;
-        window._panelDrag = id => { this.draggingPanel = id; };
 
         this.setCurrentTab = (tab, skipHistory) => {
             let { currentTab, tabVisibility, tabHistory, oneTabMode } = this.state
@@ -98,96 +82,22 @@ class Main extends Component {
             this.setState({ oneTabMode, tabVisibility })
         }
 
-        // 初始化對話框最大行數設定
-        if (typeof window.dialogMaxLines === 'undefined') {
-            window.dialogMaxLines = 2
-        }
-
         this.save = () => {
             try {
-                const stateToSave = { ...this.state }
-                // 移除不需要儲存的 UI 狀態
-                delete stateToSave.graphicType
-                delete stateToSave.currentGraphic
-                delete stateToSave.showErrorOverlay
-                delete stateToSave.errorMessage
-                // 其他 UI 狀態如有也可一併刪除
-                delete stateToSave.showCustomGroupOverlay
-                delete stateToSave.showConfigureGroupOverlay
-                delete stateToSave.groupToConfigure
-                delete stateToSave.spriteListCategory
-                delete stateToSave.selectedCustomGroupSpriteNames
-                // 過濾舊版數據結構
-                delete stateToSave.themeTextColor
-                delete stateToSave.themeBackgroundColor
-                // 刪除 3D/顯示相關不必要欄位
-                delete stateToSave.threeDSettings
-                delete stateToSave.dialogBoxAtTop
-                delete stateToSave.camera
-                delete stateToSave.game
-                // 刪除 avatar/選擇/座標等暫存欄位
-                delete stateToSave.selectedSpriteName
-                delete stateToSave.avatarX
-                delete stateToSave.avatarY
-                delete stateToSave.avatarDirection
-                // 刪除拖曳欄位
-                delete stateToSave.draggedPanel
-                delete stateToSave.dragOverPanel
-                delete stateToSave.dragStartIndex
-                delete stateToSave.dragCurrentIndex
-                delete stateToSave.panelOrder
-                delete stateToSave.draggingPanel
-                // 刪除最外層 world 欄位（徹底清理）
-                if ('world' in stateToSave) delete stateToSave.world;
-                window.localStorage.setItem('mosi-state', JSON.stringify(stateToSave))
+                window.localStorage.setItem('mosi-state', JSON.stringify(this.state))
             } catch(e) {
                 console.error('無法儲存編輯器狀態', e)
             }
         }
 
-        this.load = async () => {
+        this.load = () => {
             try {
                 let data = window.localStorage.getItem('mosi-state')
                 if (data) {
                     let newState = JSON.parse(data)
-                    // 從讀取的數據中刪除所有不必要的UI狀態
-                    delete newState.graphicType
-                    delete newState.currentGraphic
-                    delete newState.showErrorOverlay
-                    delete newState.errorMessage
-                    delete newState.showCustomGroupOverlay
-                    delete newState.showConfigureGroupOverlay
-                    delete newState.groupToConfigure
-                    delete newState.spriteListCategory
-                    delete newState.selectedCustomGroupSpriteNames
-                    // 過濾舊版數據結構
-                    delete newState.themeTextColor
-                    delete newState.themeBackgroundColor
-                    // 刪除 3D/顯示相關不必要欄位
-                    delete newState.threeDSettings
-                    delete newState.dialogBoxAtTop
-                    delete newState.camera
-                    delete newState.game
-                    // 刪除 avatar/選擇/座標等暫存欄位
-                    delete newState.selectedSpriteName
-                    delete newState.avatarX
-                    delete newState.avatarY
-                    delete newState.avatarDirection
-                    // 刪除拖曳欄位
-                    delete newState.draggedPanel
-                    delete newState.dragOverPanel
-                    delete newState.dragStartIndex
-                    delete newState.dragCurrentIndex
-                    delete newState.panelOrder
-                    delete newState.draggingPanel
-                    // 刪除最外層 world 欄位（徹底清理）
-                    if ('world' in newState) delete newState.world;
-
-                    // graphic 狀態已在 state 內，無需額外處理
                     if (newState.version !== VERSION) {
-                        // 版本不匹配時，只重置數據結構，保留 UI 狀態
-                        // newState.currentTab = 'welcome'
-                        // newState.tabVisibility = { welcome: true }
+                        newState.currentTab = 'welcome'
+                        newState.tabVisibility = { welcome: true }
                     }
                     let world = newState.world || newState
                     if (!world.inventory) {
@@ -200,51 +110,8 @@ class Main extends Component {
                     world.variables = upgradeVariables(world.variables)
                     newState.inventory = { ...world.inventory }
                     newState.variables = { ...world.variables }
-                    if (!Array.isArray(newState.customSpriteGroups)) {
-                        newState.customSpriteGroups = []
-                    } else {
-                        newState.customSpriteGroups = newState.customSpriteGroups.map(g => {
-                            if (!g || typeof g !== 'object') return { name: '無效群組', spriteNames: [] }
-                            return {
-                                name: typeof g.name === 'string' ? g.name : '無效群組',
-                                spriteNames: Array.isArray(g.spriteNames) ? g.spriteNames : []
-                            }
-                        })
-                    }
-                    // 處理 dialogMaxLines
-                    let dialogMaxLines = 2
-                    if (newState && typeof newState.dialogMaxLines === 'number' && newState.dialogMaxLines >= 2 && newState.dialogMaxLines <= 10) {
-                        dialogMaxLines = newState.dialogMaxLines
-                    }
-                    
                     this.setState(newState)
                     World.import(this, newState)
-                    // 同時更新 window 變數以保持向後相容
-                    window.dialogMaxLines = dialogMaxLines
-                    
-                    // 根據當前選中的圖片類型自動設定 graphicType
-                    if (newState.graphicList && newState.graphicList.length > 0 && newState.currentGraphicIndex !== undefined) {
-                        // 確保 currentGraphicIndex 在有效範圍內
-                        if (newState.currentGraphicIndex < 0 || newState.currentGraphicIndex >= newState.graphicList.length) {
-                            newState.currentGraphicIndex = 0;
-                        }
-                        let currentGraphic = newState.graphicList[newState.currentGraphicIndex];
-                        if (currentGraphic && currentGraphic.type) {
-                            this.setState({ graphicType: currentGraphic.type });
-                        }
-                    } else if (newState.graphicList && newState.graphicList.length > 0) {
-                        // 如果沒有 currentGraphicIndex，設為 0
-                        newState.currentGraphicIndex = 0;
-                        let currentGraphic = newState.graphicList[0];
-                        if (currentGraphic && currentGraphic.type) {
-                            this.setState({ graphicType: currentGraphic.type });
-                        }
-                    } else {
-                        // 如果沒有 graphicList，重置相關狀態
-                        newState.currentGraphicIndex = 0;
-                        newState.graphicType = 'picture';
-                    }
-                    
                     return true
                 }
             } catch(e) {
@@ -253,29 +120,6 @@ class Main extends Component {
         }
 
         this.updateWorld = (newWorldState) => {
-            // 過濾舊版數據結構
-            delete newWorldState.themeTextColor
-            delete newWorldState.themeBackgroundColor
-            // 刪除 3D/顯示相關不必要欄位
-            delete newWorldState.threeDSettings
-            delete newWorldState.dialogBoxAtTop
-            delete newWorldState.camera
-            delete newWorldState.game
-            // 刪除 avatar/選擇/座標等暫存欄位
-            delete newWorldState.selectedSpriteName
-            delete newWorldState.avatarX
-            delete newWorldState.avatarY
-            delete newWorldState.avatarDirection
-            // 刪除拖曳欄位
-            delete newWorldState.draggedPanel
-            delete newWorldState.dragOverPanel
-            delete newWorldState.dragStartIndex
-            delete newWorldState.dragCurrentIndex
-            delete newWorldState.panelOrder
-            delete newWorldState.draggingPanel
-            // 刪除最外層 world 欄位（徹底清理）
-            if ('world' in newWorldState) delete newWorldState.world;
-            
             if (!newWorldState.inventory) {
                 newWorldState.inventory = {}
                 if (newWorldState.spriteList) {
@@ -284,18 +128,7 @@ class Main extends Component {
             }
             if (!newWorldState.variables) newWorldState.variables = {}
             newWorldState.variables = upgradeVariables(newWorldState.variables)
-            
-            // 處理 dialogMaxLines
-            if (typeof newWorldState.dialogMaxLines === 'number' && newWorldState.dialogMaxLines >= 2 && newWorldState.dialogMaxLines <= 10) {
-                this.setState({ dialogMaxLines: newWorldState.dialogMaxLines })
-                window.dialogMaxLines = newWorldState.dialogMaxLines
-            }
-            
-            if (newWorldState.customSpriteGroups) {
-                this.setState(newWorldState)
-            } else {
-                this.setState({ ...newWorldState, customSpriteGroups: [] })
-            }
+            this.setState(newWorldState)
         }
 
         this.updateInventory = (itemName, value) => {
@@ -354,17 +187,14 @@ class Main extends Component {
             let world = that.state.world || that.state
             if (!world.variables) world.variables = {}
             world.variables = upgradeVariables(world.variables)
-            that.setState({ 
-                inventory: { ...world.inventory }, 
-                variables: { ...world.variables }, 
-                customSpriteGroups: [],
-            })
+            that.setState({ inventory: { ...world.inventory }, variables: { ...world.variables } })
         }
 
         // load previous world or create a new one
-        this.load().then(hasSave => {
-            if (!hasSave) World.reset(this)
-        })
+        let loadedSuccessfully = this.load()
+        if (!loadedSuccessfully) {
+            World.reset(this)
+        }
 
         // inventory 與精靈同步
         this.syncInventoryWithSprites = (spriteList = this.state.spriteList, inventory = this.state.inventory) => {
@@ -421,101 +251,6 @@ class Main extends Component {
                 if (that.syncInventoryWithSprites) that.syncInventoryWithSprites(that.state.spriteList, that.state.inventory)
             }, 0)
         }
-
-        let origImport = World.import
-        World.import = (that, worldData) => {
-            let newState = origImport(that, worldData)
-            if (newState) {
-                // 從匯入的數據中取得 customSpriteGroups，若無則設為空陣列
-                let customSpriteGroups = newState.customSpriteGroups || []
-                
-                // 修正 customSpriteGroups 結構
-                if (!Array.isArray(customSpriteGroups)) {
-                    customSpriteGroups = []
-                } else {
-                    customSpriteGroups = customSpriteGroups.map(g => {
-                        if (!g || typeof g !== 'object') return { name: '無效群組', spriteNames: [] }
-                        return {
-                            name: typeof g.name === 'string' ? g.name : '無效群組',
-                            spriteNames: Array.isArray(g.spriteNames) ? g.spriteNames : []
-                        }
-                    })
-                }
-                
-                // 處理 dialogMaxLines
-                let dialogMaxLines = 2
-                if (newState && typeof newState.dialogMaxLines === 'number' && newState.dialogMaxLines >= 2 && newState.dialogMaxLines <= 10) {
-                    dialogMaxLines = newState.dialogMaxLines
-                }
-                
-                that.setState({ customSpriteGroups, dialogMaxLines })
-                // 同時更新 window 變數以保持向後相容
-                window.dialogMaxLines = dialogMaxLines
-            }
-        }
-
-        // 批次刪除精靈
-        this.removeSprites = (spriteNames) => {
-            let { spriteList } = this.state
-            let indices = spriteNames.map(name => spriteList.findIndex(s => s.name === name)).filter(i => i >= 0)
-            // 從大到小刪除避免 index 錯亂
-            indices.sort((a, b) => b - a)
-            indices.forEach(i => Sprite.remove(this, i))
-        }
-        // 批次複製精靈
-        this.duplicateSprites = (spriteNames) => {
-            let { spriteList } = this.state
-            spriteNames.forEach(name => {
-                let sprite = spriteList.find(s => s.name === name)
-                if (sprite) Sprite.add(this, sprite)
-            })
-        }
-
-        // ========== Graphic CRUD ==========
-        this.addGraphic = (graphic) => {
-            World.addGraphic(this, graphic)
-        }
-        this.removeGraphic = (graphicIndex) => {
-            World.removeGraphic(this, graphicIndex)
-        }
-        this.renameGraphic = (graphicIndex, newName) => {
-            World.renameGraphic(this, graphicIndex, newName)
-        }
-        this.importGraphic = (graphicData) => {
-            World.importGraphic(this, graphicData)
-        }
-        this.exportGraphic = (graphicIndex) => {
-            return World.exportGraphic(this, graphicIndex)
-        }
-
-        // 在 setState 更新 currentGraphicIndex 時自動同步 currentGraphic
-        let _setState = this.setState.bind(this)
-        this.setState = (newState, ...args) => {
-            if (typeof newState === 'object' && 'currentGraphicIndex' in newState) {
-                let graphicList = newState.graphicList || this.state.graphicList
-                let idx = newState.currentGraphicIndex
-                
-                // 確保 currentGraphicIndex 在有效範圍內
-                if (graphicList && Array.isArray(graphicList) && graphicList.length > 0) {
-                    if (typeof idx !== 'number' || idx < 0 || idx >= graphicList.length) {
-                        newState.currentGraphicIndex = 0
-                        idx = 0
-                    }
-                } else {
-                    newState.currentGraphicIndex = 0
-                    idx = 0
-                }
-                
-                newState.currentGraphic = graphicList && typeof idx === 'number' ? graphicList[idx] : null
-            }
-            return _setState(newState, ...args)
-        }
-
-        // 對話框皮膚只允許一個，移除 list 結構
-        this.setTextboxSkin = (skin) => {
-            if (skin && typeof skin.isTransparent !== 'boolean') skin.isTransparent = true;
-            this.setState({ textboxSkin: skin });
-        }
     }
 
     componentDidMount() {
@@ -566,73 +301,22 @@ class Main extends Component {
         fontResolution,
         fontDirection,
         fontData,
-        textScale,
 
         modList,
         spritePalette,
 
         inventory = {},
-        variables = {},
-        customSpriteGroups,
-        showCustomGroupOverlay,
-        showConfigureGroupOverlay,
-        groupToConfigure,
-        spriteListCategory,
-        selectedCustomGroupSpriteNames,
-
-        // 主體顏色設定
-        mainPaletteIndex,
-        mainBgColorIndex,
-        mainTextColorIndex,
-        graphicList,
-        currentGraphicIndex,
-        graphicType,
-        // 新增對話框皮膚狀態
-        textboxSkin,
+        variables = {}
     }) {
-        // 防護檢查：確保 roomList 和 currentRoomIndex 存在且有效
-        if (!roomList || !Array.isArray(roomList) || roomList.length === 0) {
-            roomList = []
-        }
-        if (typeof currentRoomIndex !== 'number' || currentRoomIndex < 0 || currentRoomIndex >= roomList.length) {
-            currentRoomIndex = 0
-        }
-        
         let currentRoom = roomList[currentRoomIndex]
-        
-        // 防護檢查：確保 currentRoom 存在
-        if (!currentRoom) {
-            currentRoom = {
-                paletteName: paletteList[0]?.name || 'default',
-                musicName: musicList[0]?.name || 'default'
-            }
-        }
 
         let roomPaletteName = currentRoom.paletteName
         let roomPaletteIndex = paletteList.findIndex(p => p.name === roomPaletteName)
-        // 如果找不到對應的調色盤，自動切換到第一個調色盤
-        if (roomPaletteIndex === -1) {
-            roomPaletteIndex = 0
-            currentRoom.paletteName = paletteList[0]?.name || 'default'
-        }
         let roomPalette = paletteList[roomPaletteIndex]
 
         let roomMusicName = currentRoom.musicName
         let roomMusicIndex = musicList.findIndex(p => p.name === roomMusicName)
-        // 如果找不到對應的音樂，自動切換到第一個音樂
-        if (roomMusicIndex === -1) {
-            roomMusicIndex = 0
-            currentRoom.musicName = musicList[0]?.name || 'default'
-        }
 
-        // 防護檢查：確保 spriteList 和 currentSpriteIndex 存在且有效
-        if (!spriteList || !Array.isArray(spriteList) || spriteList.length === 0) {
-            spriteList = []
-        }
-        if (typeof currentSpriteIndex !== 'number' || currentSpriteIndex < 0 || currentSpriteIndex >= spriteList.length) {
-            currentSpriteIndex = 0
-        }
-        
         let currentSprite = spriteList[currentSpriteIndex]
 
         let backButton = !oneTabMode ? null :
@@ -671,21 +355,11 @@ class Main extends Component {
                 resetWorld: World.reset.bind(this, this, this.state),
                 setWrapHorizontal: World.setWrapHorizontal.bind(this, this),
                 setWrapVertical: World.setWrapVertical.bind(this, this),
-                setMainPaletteIndex: World.setMainPaletteIndex.bind(this, this),
-                setMainBgColorIndex: World.setMainBgColorIndex.bind(this, this),
-                setMainTextColorIndex: World.setMainTextColorIndex.bind(this, this),
                 selectRoom: Room.select.bind(this, this),
                 startRoomIndex: Room.roomWithAvatar(this),
                 setFontResolution: fontResolution => this.setState({ fontResolution }),
                 setFontDirection: fontDirection => this.setState({ fontDirection }),
                 setFontData: fontData => this.setState({ fontData }),
-                setTextScale: textScale => {
-                    this.setState({ textScale })
-                    // 即時更新文字比例設定
-                    if (window.textScale !== undefined) {
-                        window.textScale = textScale
-                    }
-                },
                 addMod: Mod.add.bind(this, this),
                 renameMod: Mod.rename.bind(this, this),
                 changeModType: Mod.changeType.bind(this, this),
@@ -695,7 +369,6 @@ class Main extends Component {
                 fontResolution,
                 fontDirection,
                 fontData,
-                textScale,
                 currentRoomIndex,
                 roomList,
                 roomWidth,
@@ -710,20 +383,7 @@ class Main extends Component {
                 spriteWidth,
                 spriteHeight,
                 paletteList,
-                modList,
-
-                // 主體顏色設定
-                mainPaletteIndex,
-                mainBgColorIndex,
-                mainTextColorIndex,
-                setTextboxSkin: this.setTextboxSkin,
-                textboxSkin: this.state.textboxSkin,
-                dialogMaxLines: this.state.dialogMaxLines,
-                setDialogMaxLines: (value) => {
-                    this.setState({ dialogMaxLines: value })
-                    // 同時更新 window 變數以保持向後相容
-                    window.dialogMaxLines = value
-                },
+                modList
             })
 
         let roomTab = !tabVisibility.room ? null :
@@ -780,154 +440,18 @@ class Main extends Component {
             h(SpriteListPanel, {
                 closeTab: this.closeTab.bind(this, 'spriteList'),
                 selectSprite: Sprite.select.bind(this, this),
-                editSprite: this.openSpriteTab,
                 addSprite: Sprite.add.bind(this, this),
                 importSprite: Sprite.import.bind(this, this),
                 spriteList,
                 currentSpriteIndex,
-                colorList: roomPalette.colorList,
-                currentRoom,
-                customSpriteGroups,
-                addCustomGroup: this.addCustomGroup,
-                removeCustomGroup: this.removeCustomGroup,
-                updateCustomGroup: this.updateCustomGroup,
-                importCustomGroups: this.importCustomGroups,
-                showError: this.showError,
-                removeSprites: this.removeSprites,
-                duplicateSprites: this.duplicateSprites
+                colorList: roomPalette.colorList
             })
 
-        let graphicListTab = !tabVisibility.graphicList ? null :
-            h(GraphicListPanel, {
-                closeTab: this.closeTab.bind(this, 'graphicList'),
-                selectGraphic: (index) => {
-                    // 更新目前的插圖索引與類型
-                    const g = graphicList && graphicList[index] ? graphicList[index] : null
-                    if (g) {
-                        this.setState({ currentGraphicIndex: index, graphicType: g.type })
-                        // picture：直接切換到腳本面板（on-show / on-hide）
-                        if (g.type === 'picture') {
-                            this.openScriptTab('graphic')
-                        } else {
-                            // face：維持插圖編輯面板
-                            this.setCurrentTab('graphic')
-                        }
-                    } else {
-                        // 安全回退
-                        this.setState({ currentGraphicIndex: index })
-                        this.setCurrentTab('graphic')
-                    }
-                },
-                editGraphic: () => this.setCurrentTab('graphic'),
-                addGraphic: (graphic) => World.addGraphic(this, graphic),
-                importGraphic: (data) => World.importGraphic(this, data),
-                graphicList,
-                currentGraphicIndex,
-                colorList: roomPalette && roomPalette.colorList ? roomPalette.colorList : ['#000000'],
-                roomWidth,
-                roomHeight,
-                spriteWidth,
-                spriteHeight,
-                type: this.state.graphicType,
-                paletteList, // 傳遞 paletteList
-                onTypeChange: (newType) => {
-                    // 切換時自動選擇該類型第一個 graphic
-                    let idx = graphicList.findIndex(g => g.type === newType)
-                    this.setState({ graphicType: newType, currentGraphicIndex: idx >= 0 ? idx : 0 })
-                }
-            });
-
-        let currentGraphic = graphicList[currentGraphicIndex]
-        let graphicTab = !tabVisibility.graphic ? null :
-            h(GraphicPanel, {
-                closeTab: this.closeTab.bind(this, 'graphic'),
-                openScriptTab: this.openScriptTab.bind(this, 'graphic'),
-                renameGraphic: (newName) => World.renameGraphic(this, currentGraphicIndex, newName),
-                exportGraphic: () => World.exportGraphic(this, currentGraphicIndex),
-                createGraphicGif: Graphic.createGif.bind(this, this, currentGraphicIndex), // 實作 gif 生成
-                removeGraphic: () => {
-                    World.removeGraphic(this, currentGraphicIndex);
-                    // 修正 currentGraphicIndex
-                    let newList = this.state.graphicList;
-                    let newIdx = Math.min(this.state.currentGraphicIndex, newList.length - 1);
-                    this.setState({ currentGraphicIndex: newIdx >= 0 ? newIdx : 0 });
-                },
-                duplicateGraphic: () => {
-                    if (!currentGraphic) return;
-                    let newGraphic = deepClone(currentGraphic);
-                    // 取得唯一名稱
-                    let baseName = newGraphic.name;
-                    let number = parseInt(baseName.split('-').slice(-1)[0]);
-                    if (isInt(number)) {
-                        let numberLength = (number).toString().length + 1;
-                        baseName = baseName.slice(0, -numberLength);
-                    } else {
-                        number = 2;
-                    }
-                    while (graphicList.find(g => g.name === newGraphic.name)) {
-                        newGraphic.name = baseName + '-' + number;
-                        number++;
-                    }
-                    World.addGraphic(this, newGraphic);
-                },
-                addFrame: (newFrame) => {
-                    if (!currentGraphic) return;
-                    let width = currentGraphic.width;
-                    let height = currentGraphic.height;
-                    let frame = newFrame || Array(width * height).fill(0);
-                    Graphic.addFrame(this, currentGraphicIndex, frame);
-                },
-                removeFrame: (frameIndex) => {
-                    if (!currentGraphic) return;
-                    Graphic.removeFrame(this, currentGraphicIndex, frameIndex);
-                },
-                updateFrame: (frameIndex, newFrameOrMeta) => {
-                    let graphicList = this.state.graphicList.slice();
-                    let graphic = graphicList[currentGraphicIndex];
-                    if (!graphic) return;
-                    if (Array.isArray(newFrameOrMeta)) {
-                        graphic.frameList[frameIndex] = newFrameOrMeta;
-                    } else if (typeof newFrameOrMeta === 'object') {
-                        if (newFrameOrMeta.paletteName) graphic.paletteName = newFrameOrMeta.paletteName;
-                        if (newFrameOrMeta.musicName) graphic.musicName = newFrameOrMeta.musicName;
-                    }
-                    this.setState({ graphicList });
-                },
-                setGraphicIsTransparent: Graphic.setIsTransparent.bind(this, this, currentGraphicIndex),
-                // 新增音樂/調色盤相關 callback
-                editMusic: Music.select.bind(this, this),
-                addMusic: Music.add.bind(this, this),
-                importMusic: Music.import.bind(this, this),
-                editPalette: Palette.select.bind(this, this),
-                addPalette: Palette.add.bind(this, this),
-                importPalette: Palette.import.bind(this, this),
-                graphic: currentGraphic,
-                colorList: (() => {
-                    if (!currentGraphic) return ['#000000'];
-                    if (currentGraphic.type === 'face') {
-                        return roomPalette && roomPalette.colorList ? roomPalette.colorList : ['#000000'];
-                    } else {
-                        if (currentGraphic.paletteName) {
-                            let palette = paletteList.find(p => p.name === currentGraphic.paletteName);
-                            // 如果找不到對應的調色盤，自動切換到第一個調色盤
-                            if (!palette && paletteList.length > 0) {
-                                currentGraphic.paletteName = paletteList[0].name;
-                                palette = paletteList[0];
-                            }
-                            return palette ? palette.colorList : ['#000000'];
-                        }
-                        return ['#000000'];
-                    }
-                })(),
-                paletteList,
-                musicList
-            });
-
-        let safeColorList = (roomPalette && Array.isArray(roomPalette.colorList)) ? roomPalette.colorList : ['#000000']
         let spriteTab = !tabVisibility.sprite ? null :
             h(SpritePanel, {
                 closeTab: this.closeTab.bind(this, 'sprite'),
                 openScriptTab: this.openScriptTab.bind(this, 'sprite'),
+
                 renameSprite: Sprite.rename.bind(this, this, currentSpriteIndex),
                 setSpriteIsWall: Sprite.setIsWall.bind(this, this, currentSpriteIndex),
                 setSpriteIsItem: Sprite.setIsItem.bind(this, this, currentSpriteIndex),
@@ -942,32 +466,22 @@ class Main extends Component {
                 removeFrame: Sprite.removeFrame.bind(this, this, currentSpriteIndex),
                 updateFrame: Sprite.updateFrame.bind(this, this, currentSpriteIndex),
                 sprite: currentSprite,
-                colorList: safeColorList
+                colorList: roomPalette.colorList
             })
 
         let scriptClass
         if (scriptTabType === 'world') scriptClass = World
         if (scriptTabType === 'room') scriptClass = Room
         if (scriptTabType === 'sprite') scriptClass = Sprite
-        if (scriptTabType === 'graphic') scriptClass = Graphic
 
         let scriptList
         if (scriptTabType === 'world') scriptList = worldScriptList
         if (scriptTabType === 'room') scriptList = currentRoom.scriptList
         if (scriptTabType === 'sprite') scriptList = currentSprite.scriptList
-        if (scriptTabType === 'graphic') {
-            // 只有 picture 類型才有 scriptList，face 沒有
-            if (currentGraphic && currentGraphic.type === 'picture') {
-                scriptList = currentGraphic.scriptList
-            } else {
-                scriptList = { 'on-show': '', 'on-hide': '' }
-            }
-        }
 
         let scriptIndex = 0
         if (scriptTabType === 'room') scriptIndex = currentRoomIndex
         if (scriptTabType === 'sprite') scriptIndex = currentSpriteIndex
-        if (scriptTabType === 'graphic') scriptIndex = currentGraphicIndex
 
         let scriptTab = !tabVisibility.script ? null :
             h(ScriptPanel, {
@@ -983,8 +497,7 @@ class Main extends Component {
                 addPalette: Palette.add.bind(this, this),
                 importPalette: Palette.import.bind(this, this),
                 currentPaletteIndex: roomPaletteIndex,
-                paletteList,
-                music: musicList[currentMusicIndex],
+                paletteList
             })
 
         let paletteTab = !tabVisibility.palette ? null :
@@ -1060,7 +573,6 @@ class Main extends Component {
         let spriteButtonSelected = tabVisibility.sprite || tabVisibility.spriteList || (tabVisibility.script && scriptTabType === 'sprite')
         let paletteButtonSelected = tabVisibility.palette || tabVisibility.paletteList
         let musicButtonSelected = tabVisibility.music || tabVisibility.musicList
-        let graphicButtonSelected = tabVisibility.graphic || tabVisibility.graphicList || (tabVisibility.script && scriptTabType === 'graphic')
 
         let header = tabVisibility.play ? null :
             div({ className: 'editor-header row' }, [
@@ -1089,19 +601,10 @@ class Main extends Component {
                     }
                 }, 'sprites'),
                 iconButton({
-                    title: 'graphics',
-                    className: 'simple' + (graphicButtonSelected ? ' selected' : ''),
-                    onclick: () => {
-                        if (!graphicList || graphicList.length === 0) {
-                            // 沒有資料直接顯示 graphic-list-panel
-                            this.setCurrentTab('graphicList')
-                        } else if (tabVisibility.graphic) {
-                            this.setCurrentTab('graphicList')
-                        } else {
-                            this.setCurrentTab('graphic')
-                        }
-                    }
-                }, 'graphics'),
+                    title: 'inventory',
+                    className: 'simple' + (tabVisibility.inventory ? ' selected' : ''),
+                    onclick: () => this.setCurrentTab('inventory')
+                }, 'item'),
                 iconButton({
                     title: 'colors',
                     className: 'simple' + (paletteButtonSelected ? ' selected' : ''),
@@ -1124,11 +627,6 @@ class Main extends Component {
                         }
                     }
                 }, 'music'),
-                iconButton({
-                    title: 'inventory',
-                    className: 'simple' + (tabVisibility.inventory ? ' selected' : ''),
-                    onclick: () => this.setCurrentTab('inventory')
-                }, 'list'),
                 fill(),
                 iconButton({
                     title: 'play',
@@ -1145,127 +643,20 @@ class Main extends Component {
         return div({ className: 'main' }, [
             header,
             div({ id: 'tabs', className: 'tabs' }, [
-                ...this.panelOrder.map((panelKey, idx) => {
-                    let tab = null;
-                    switch(panelKey) {
-                        case 'welcome': tab = welcomeTab; break;
-                        case 'world': tab = worldTab; break;
-                        case 'room': tab = roomTab; break;
-                        case 'spriteList': tab = spriteListTab; break;
-                        case 'sprite': tab = spriteTab; break;
-                        case 'graphicList': tab = graphicListTab; break;
-                        case 'graphic':
-                            // 只有 graphicList 有資料且 tabVisibility.graphic 為 true 才顯示 graphicTab
-                            if (graphicList && graphicList.length > 0 && tabVisibility.graphic) {
-                                tab = graphicTab;
-                            } else {
-                                tab = null;
-                            }
-                            break;
-                        case 'script': tab = scriptTab; break;
-                        case 'paletteList': tab = paletteListTab; break;
-                        case 'palette': tab = paletteTab; break;
-                        case 'musicList': tab = musicListTab; break;
-                        case 'music': tab = musicTab; break;
-                        case 'inventory': tab = inventoryTab; break;
-                        default: tab = null;
-                    }
-                    if (!tab || !tabVisibility[panelKey]) return null;
-                    return h('div', {
-                        key: panelKey,
-                        className: 'drag-panel' +
-                            (this.draggingPanel === panelKey ? ' dragging' : '') +
-                            (this.dragOverPanel === panelKey ? ' drag-over' : ''),
-                        draggable: true,
-                        ondragstart: e => {
-                            // 只允許 header 觸發拖曳
-                            if (!e.target.classList.contains('panel-header')) {
-                                e.preventDefault();
-                                return false;
-                            }
-                            e.dataTransfer.effectAllowed = 'move';
-                            e.dataTransfer.setData('text/plain', panelKey);
-                            this.draggingPanel = panelKey;
-                        },
-                        ondragover: e => {
-                            e.preventDefault();
-                            if (this.dragOverPanel !== panelKey) {
-                                this.dragOverPanel = panelKey;
-                                this.forceUpdate();
-                            }
-                        },
-                        ondragleave: e => {
-                            // 只在真的離開整個 panel 時才清除 dragOverPanel
-                            if (!e.currentTarget.contains(e.relatedTarget)) {
-                                if (this.dragOverPanel === panelKey) {
-                                    this.dragOverPanel = null;
-                                    this.forceUpdate();
-                                }
-                            }
-                        },
-                        ondrop: e => {
-                            e.preventDefault();
-                            if (this.draggingPanel && this.draggingPanel !== panelKey) {
-                                const from = this.panelOrder.indexOf(this.draggingPanel);
-                                const to = this.panelOrder.indexOf(panelKey);
-                                if (from !== -1 && to !== -1) {
-                                    this.panelOrder.splice(to, 0, this.panelOrder.splice(from, 1)[0]);
-                                    this.forceUpdate();
-                                }
-                            }
-                            this.draggingPanel = null;
-                            this.dragOverPanel = null;
-                            this.forceUpdate(); // 確保 drag-over 樣式消失
-                        },
-                    }, tab);
-                })
+                welcomeTab,
+                worldTab,
+                roomTab,
+                spriteListTab,
+                spriteTab,
+                scriptTab,
+                paletteListTab,
+                paletteTab,
+                musicListTab,
+                musicTab,
+                inventoryTab
             ]),
-            errorOverlay,
+            errorOverlay
         ])
-    }
-
-    addCustomGroup = groupName => {
-        if (!groupName) {
-            this.setState({ showErrorOverlay: true, errorMessage: '群組名稱不能為空！' })
-            return
-        }
-        if (this.state.customSpriteGroups.find(g => g.name === groupName)) {
-            this.setState({ showErrorOverlay: true, errorMessage: `群組名稱 "${groupName}" 已存在！` })
-            return
-        }
-        const newGroup = { name: groupName, spriteNames: [] }
-        this.setState({ customSpriteGroups: [...this.state.customSpriteGroups, newGroup] })
-    }
-
-    removeCustomGroup = groupName => {
-        this.setState({
-            customSpriteGroups: this.state.customSpriteGroups.filter(g => g.name !== groupName)
-        })
-    }
-
-    updateCustomGroup = updatedGroup => {
-        // 自動過濾掉不存在的精靈
-        const spriteList = this.state.spriteList || [];
-        const validNames = updatedGroup.spriteNames.filter(name => spriteList.some(s => s.name === name));
-        const newGroups = this.state.customSpriteGroups.map(g => {
-            return g.name === updatedGroup.name ? { ...updatedGroup, spriteNames: validNames } : g
-        })
-        this.setState({ customSpriteGroups: newGroups })
-    }
-
-    importCustomGroups = importedGroups => {
-        let merged = [...this.state.customSpriteGroups]
-        importedGroups.forEach(g => {
-            if (g && typeof g.name === 'string' && Array.isArray(g.spriteNames)) {
-                if (!merged.find(gg => gg.name === g.name)) merged.push(g)
-            }
-        })
-        this.setState({ customSpriteGroups: merged })
-    }
-
-    selectCustomGroup = groupName => {
-        // This function is no longer needed in main.js
-        // as the panel will handle its own state.
     }
 }
 

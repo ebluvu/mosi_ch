@@ -14,7 +14,7 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    background: //BG_COLOR//;
+    background: black;
 }
 
 #game-wrapper {
@@ -42,11 +42,6 @@ canvas:focus {
 
 <script>
 window.GAME_DATA = //GAME_DATA//
-</script>
-
-<script>
-// 添加必要的輔助函數
-let deepClone = (obj) => JSON.parse(JSON.stringify(obj))
 </script>
 
 <script>

@@ -1,10 +1,7 @@
 class RoomPanel extends Component {
     constructor() {
         super()
-        this.state = {
-            showGrid: false,
-            showDialogSpriteOverlay: false
-        }
+        this.state = {}
     }
 
     render({
@@ -64,8 +61,7 @@ class RoomPanel extends Component {
         showPaletteOverlay,
         showSpriteOverlay,
         showRandomOverlay,
-        showExtrasOverlay,
-        showGrid
+        showExtrasOverlay
     }) {
         let sprite = spriteList[currentSpriteIndex]
         let currentMusic = musicList[currentMusicIndex]
@@ -235,7 +231,7 @@ class RoomPanel extends Component {
                 paletteList
             })
 
-        let roomGridProps = {
+        let roomGrid = h(RoomGrid, {
             className: 'initial-focus',
             roomWidth,
             roomHeight,
@@ -244,23 +240,12 @@ class RoomPanel extends Component {
             spriteList,
             currentSpriteName: sprite.name,
             tileList: room.tileList,
+            drawTile: (x, y) => addTile(x, y, currentSpriteIndex),
+            eraseTile: (x, y) => clearTile(x, y),
             isAnimated: true,
             spriteIsTransparent: sprite.isTransparent,
-            colorList,
-            showGrid: this.state.showGrid,
-            showDialogSpriteOverlay: this.state.showDialogSpriteOverlay,
-            dialogSpriteFilter: s => s && s.scriptList && s.scriptList['on-push'] && s.scriptList['on-push'].trim() !== '',
-            onDialogSpriteSelect: spriteIndex => {
-                selectSprite(spriteIndex, 'script')
-                this.setCurrentTab && this.setCurrentTab('script')
-                // 不要自動關閉 showDialogSpriteOverlay
-            }
-        }
-        if (!this.state.showDialogSpriteOverlay) {
-            roomGridProps.drawTile = (x, y) => addTile(x, y, currentSpriteIndex)
-            roomGridProps.eraseTile = (x, y) => clearTile(x, y)
-        }
-        let roomGrid = h(RoomGrid, roomGridProps)
+            colorList
+        })
 
         let roomSliceNorth = h(RoomSlice, {
             sliceHorizontal: true,
@@ -318,7 +303,7 @@ class RoomPanel extends Component {
             arrow: roomWest ? '◀' : ''
         })
 
-        let spritePaletteButtons = spritePalette.slice(-6).map(spriteIndex => {
+        let spritePaletteButtons = spritePalette.map(spriteIndex => {
             if (!spriteList[spriteIndex]) return
 
             return spriteButton({
@@ -335,18 +320,6 @@ class RoomPanel extends Component {
                 colorList
             })
         })
-
-        let gridToggleButton = iconButton({
-            title: '格線',
-            className: 'simple' + (showGrid ? ' selected' : ''),
-            onclick: () => this.setState(prevState => ({ showGrid: !prevState.showGrid }))
-        }, 'grid')
-
-        let dialogSpriteToggleButton = iconButton({
-            title: '精靈對話',
-            className: 'simple' + (this.state.showDialogSpriteOverlay ? ' selected' : ''),
-            onclick: () => this.setState(prevState => ({ showDialogSpriteOverlay: !prevState.showDialogSpriteOverlay }))
-        }, 'sprites')
 
         let addSpriteToPaletteButton = iconButton({
             onclick: () => this.setState({ showSpriteOverlay: true }),
@@ -391,8 +364,6 @@ class RoomPanel extends Component {
             row([
                 spritePaletteButtons,
                 fill(),
-                gridToggleButton,
-                dialogSpriteToggleButton,
                 addSpriteToPaletteButton
             ]),
             helpLink('rooms'),

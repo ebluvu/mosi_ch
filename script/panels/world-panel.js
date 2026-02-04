@@ -17,9 +17,6 @@ class WorldPanel extends Component {
         resetWorld,
         setWrapHorizontal,
         setWrapVertical,
-        setMainPaletteIndex,
-        setMainBgColorIndex,
-        setMainTextColorIndex,
 
         selectRoom,
         startRoomIndex,
@@ -43,24 +40,16 @@ class WorldPanel extends Component {
         setFontResolution,
         setFontDirection,
         setFontData,
-        setTextScale,
         fontResolution,
         fontDirection,
         fontData,
-        textScale,
         
         modList,
         addMod,
         renameMod,
         changeModType,
         updateModCode,
-        removeMod,
-
-        // 主體顏色設定
-        mainPaletteIndex,
-        mainBgColorIndex,
-        mainTextColorIndex,
-        textboxSkin
+        removeMod
     }, {
         showImportOverlay,
         showExportOverlay,
@@ -70,8 +59,7 @@ class WorldPanel extends Component {
         showExtrasOverlay,
         showFontOverlay,
         showResizeOverlay,
-        showModsOverlay,
-        showMainColorOverlay
+        showModsOverlay
     }) {
 
         let nameButton = button({
@@ -192,45 +180,15 @@ class WorldPanel extends Component {
             onclick: () => this.setState({ showExtrasOverlay: false, showFontOverlay: true })
         }, '字體設定')
 
-        let setTextboxSkin = this.props.setTextboxSkin;
         let fontOverlay = !showFontOverlay ? null :
             h(FontOverlay, {
-                setTextboxSkin: setTextboxSkin,
-                textboxSkin: textboxSkin,
                 fontResolution,
                 fontDirection,
                 fontData,
-                textScale,
-                dialogMaxLines: this.props.dialogMaxLines || 2,
-                setDialogMaxLines: (value) => {
-                    // 更新世界數據中的 dialogMaxLines
-                    if (this.props.setDialogMaxLines) {
-                        this.props.setDialogMaxLines(value)
-                    }
-                    // 同時更新 window 變數以保持向後相容
-                    window.dialogMaxLines = value
-                },
-                closeOverlay: () => this.setState({ showFontOverlay: false }),
                 setFontResolution,
                 setFontDirection,
                 setFontData,
-                setTextScale
-            })
-
-        let mainColorButton = button({
-            onclick: () => this.setState({ showExtrasOverlay: false, showMainColorOverlay: true })
-        }, '主體顏色')
-
-        let mainColorOverlay = !showMainColorOverlay ? null :
-            h(MainColorOverlay, {
-                paletteList,
-                mainPaletteIndex,
-                mainBgColorIndex,
-                mainTextColorIndex,
-                setMainPaletteIndex,
-                setMainBgColorIndex,
-                setMainTextColorIndex,
-                closeOverlay: () => this.setState({ showMainColorOverlay: false })
+                closeOverlay: () => this.setState({ showFontOverlay: false })
             })
 
         let extrasOverlay = !showExtrasOverlay ? null :
@@ -241,7 +199,6 @@ class WorldPanel extends Component {
                     hr(),
                     resizeButton,
                     fontButton,
-                    mainColorButton,
                     modsButton,
                     hr(),
                     exportButton,
@@ -306,7 +263,6 @@ class WorldPanel extends Component {
             resetOverlay,
             resizeOverlay,
             fontOverlay,
-            mainColorOverlay,
             modsOverlay
         ])
     }

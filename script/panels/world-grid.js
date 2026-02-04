@@ -86,21 +86,9 @@ class WorldGrid extends Component {
         this.drawRoom = (tileList, spriteList, colorList, context) => {
             tileList.forEach(tile => {
                 let sprite = spriteList.find(sprite => sprite.name === tile.spriteName)
-                let colorIndex = 0
-                if (sprite && sprite.frameList && sprite.frameList[0]) {
-                    let count = {}
-                    sprite.frameList[0].forEach(idx => {
-                        if (idx > 0) count[idx] = (count[idx] || 0) + 1
-                    })
-                    let maxCount = 0
-                    Object.keys(count).forEach(idx => {
-                        if (count[idx] > maxCount) {
-                            maxCount = count[idx]
-                            colorIndex = parseInt(idx)
-                        }
-                    })
-                }
-                let color = colorList[Math.min(colorIndex, colorList.length - 1)]
+                let colorIndex = sprite.colorIndex
+                while (colorIndex > 0 && !colorList[colorIndex]) colorIndex--
+                let color = colorList[colorIndex]
                 context.fillStyle = color
                 context.fillRect(tile.x, tile.y, 1, 1)
             })

@@ -36,11 +36,7 @@ class InventoryPanel extends Component {
             let prevVars = prevProps.variables || {}
             let currVars = this.props.variables || {}
             Object.keys(currVars).forEach(name => {
-                if (
-                    !prevVars[name] ||
-                    currVars[name].value !== prevVars[name]?.value ||
-                    currVars[name].type !== prevVars[name]?.type
-                ) {
+                if (currVars[name] !== prevVars[name]) {
                     flashVars[name] = true
                     setTimeout(() => {
                         this.setState(state => {
@@ -74,10 +70,15 @@ class InventoryPanel extends Component {
     }
     handleVarSave = (oldName, newName, type, value, shouldClose = false) => {
         let { variables, onRenameVariable, updateVariable } = this.props
+        let newVars = { ...variables }
         let oldValue = (variables[oldName] && typeof variables[oldName].value !== 'undefined') ? variables[oldName].value : (type === 'boolean' ? true : 0)
         let newValue = typeof value !== 'undefined' ? value : oldValue
-        if (oldName !== newName && onRenameVariable) onRenameVariable(oldName, newName)
+        if (oldName !== newName) {
+            delete newVars[oldName]
+        }
+        newVars[newName] = { value: newValue, type }
         updateVariable && updateVariable(newName, { value: newValue, type })
+        if (oldName !== newName && onRenameVariable) onRenameVariable(oldName, newName)
         if (shouldClose) this.setState({ showVarOverlay: false, editingVar: null })
     }
     handleVarDuplicate = (name, type) => {
@@ -147,7 +148,7 @@ class InventoryPanel extends Component {
             className: 'simple' + (this.state.tab === 'variable' ? ' selected' : ''),
             title: '變量',
             onclick: () => this.setTab('variable')
-        }, 'random')
+        }, 'settings')
 
         // 道具頁內容
         let itemRows = itemList.map(item => {
@@ -250,13 +251,13 @@ class InventoryPanel extends Component {
                 onImport: this.handleImportVariables,
                 closeOverlay: this.closeImportVarOverlay
             }) : null
-        return panel({ header: 'list', id: 'inventoryPanel', closeTab }, [
+        return panel({ header: 'item', id: 'inventoryPanel', closeTab }, [
             row([
                 itemTabBtn,
                 variableTabBtn
             ]),
             hr(),
-            div({ className: 'inventory-content' }, content),
+            div({ className: 'content' }, content),
             varOverlay,
             importVarOverlay,
             errorOverlay
