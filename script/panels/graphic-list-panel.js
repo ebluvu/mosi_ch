@@ -137,8 +137,9 @@ class GraphicListPanel extends Component {
             type,
             colorList,
             paletteList, // 傳遞 paletteList
-            gridWidth: 4,
-            isAnimated: true // 啟用動畫預覽
+            gridWidth: 2,
+            isAnimated: false,
+            cacheAllFrames: false
         })
 
         let panelContent = [
@@ -149,7 +150,7 @@ class GraphicListPanel extends Component {
                 typeButtons,
             ]),
             hr(),
-            div({ className: 'grid-container' }, [
+            div({ className: 'grid-container', style: { maxHeight: '450px', overflowY: 'auto' } }, [
                 graphicGrid,
             ]),
             importOverlay

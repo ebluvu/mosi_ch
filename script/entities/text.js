@@ -229,20 +229,8 @@ return {
                     // === 完全比照 drawContinueIndicator 的皮膚動畫寫法 ===
                     let useWorld = world || (window.game && window.game.world);
                     let useSkin = useWorld && useWorld.textboxSkin;
-                    // 取得正確 palette：根據房間 paletteName 找 paletteList
-                    let paletteList = useWorld && useWorld.paletteList;
-                    let roomList = useWorld && useWorld.roomList;
-                    let paletteName = null;
-                    if (roomList && typeof useWorld.currentRoomIndex === 'number' && roomList[useWorld.currentRoomIndex]) {
-                        paletteName = roomList[useWorld.currentRoomIndex].paletteName;
-                    }
-                    let usePalette = null;
-                    if (paletteList && paletteName) {
-                        usePalette = paletteList.find(p => p.name === paletteName);
-                    }
-                    if (!usePalette && paletteList && typeof useWorld.mainPaletteIndex === 'number') {
-                        usePalette = paletteList[useWorld.mainPaletteIndex];
-                    }
+                    // 使用傳入的 palette 參數（已經是當前房間的動態調色盤）
+                    let usePalette = palette;
                     let frameCount = useSkin && useSkin.indicatorList ? useSkin.indicatorList.length : 1;
                     let frameIdx = (typeof window._mosiChoiceArrowFrame === 'number') ? (window._mosiChoiceArrowFrame % frameCount) : Math.floor((Date.now() / 400) % frameCount);
                     let indicator = useSkin && useSkin.indicatorList ? useSkin.indicatorList[frameIdx] : null;

@@ -848,7 +848,17 @@ return class {
             }
 
             let world = this.world;
-            let palette = world && world.paletteList ? world.paletteList[world.mainPaletteIndex] : null;
+            // 優先使用當前房間的動態調色盤，否則使用主調色盤
+            let palette = null;
+            if (world && world.paletteList) {
+                let currentRoom = this.currentRoom || world.roomList[this.currentRoomIndex];
+                if (currentRoom && currentRoom.paletteName) {
+                    palette = world.paletteList.find(p => p.name === currentRoom.paletteName);
+                }
+                if (!palette && typeof world.mainPaletteIndex === 'number') {
+                    palette = world.paletteList[world.mainPaletteIndex];
+                }
+            }
             let nextPageNodeIndex = Text.drawNode({
                 nodes: this.dialogNodes,
                 canvas,
@@ -1644,8 +1654,22 @@ return class {
                 followerTrail: this.followerTrail,
                 // 房間內 tileList 只存有變動的（如道具被撿走、門被打開等）
                 roomStates: this.world.roomList.map(room => ({
-                    tileList: room.tileList.map(tile => ({...tile}))
+                    tileList: room.tileList.map(tile => ({...tile})),
+                    paletteName: room.paletteName,
+                    musicName: room.musicName
                 })),
+                // 存儲插圖的動態調色盤和音樂
+                graphicStates: this.world.graphicList
+                    .filter(g => g.type === 'picture')
+                    .map(g => ({
+                        name: g.name,
+                        paletteName: g.paletteName,
+                        musicName: g.musicName
+                    })),
+                // 當前插圖狀態
+                currentPicture: this.currentPicture,
+                currentPicturePalette: this.currentPicturePalette,
+                currentPictureMusic: this.currentPictureMusic
             });
         }
 
@@ -1664,13 +1688,46 @@ return class {
                 this.followerList = data.followerList || [];
                 this.followerTrail = data.followerTrail || [];
                 
-                // 還原房間 tileList
+                // 還原房間 tileList 和動態調色盤/音樂
                 if (Array.isArray(data.roomStates)) {
                     data.roomStates.forEach((roomState, i) => {
                         if (this.world.roomList[i] && roomState && Array.isArray(roomState.tileList)) {
                             this.world.roomList[i].tileList = roomState.tileList.map(tile => ({...tile}));
+                            // 還原房間的動態調色盤和音樂
+                            if (roomState.paletteName !== undefined) {
+                                this.world.roomList[i].paletteName = roomState.paletteName;
+                            }
+                            if (roomState.musicName !== undefined) {
+                                this.world.roomList[i].musicName = roomState.musicName;
+                            }
                         }
                     });
+                }
+                
+                // 還原插圖的動態調色盤和音樂
+                if (Array.isArray(data.graphicStates)) {
+                    data.graphicStates.forEach(graphicState => {
+                        let graphic = this.world.graphicList.find(g => g.name === graphicState.name && g.type === 'picture');
+                        if (graphic) {
+                            if (graphicState.paletteName !== undefined) {
+                                graphic.paletteName = graphicState.paletteName;
+                            }
+                            if (graphicState.musicName !== undefined) {
+                                graphic.musicName = graphicState.musicName;
+                            }
+                        }
+                    });
+                }
+                
+                // 還原當前插圖狀態
+                if (data.currentPicture !== undefined) {
+                    this.currentPicture = data.currentPicture;
+                }
+                if (data.currentPicturePalette !== undefined) {
+                    this.currentPicturePalette = data.currentPicturePalette;
+                }
+                if (data.currentPictureMusic !== undefined) {
+                    this.currentPictureMusic = data.currentPictureMusic;
                 }
                 
                 // 如果目標房間與當前房間不同，先切換房間（此時 currentRoomIndex 還是舊值）
@@ -1692,6 +1749,15 @@ return class {
                     requestAnimationFrame((timestamp) => {
                         this.update(timestamp);
                     });
+                }
+                
+                // 觸發變量更新回調，讓面板同步更新
+                if (this.onVariablesChange) {
+                    this.onVariablesChange(this.variables);
+                }
+                // 觸發物品欄更新回調
+                if (this.onInventoryChange) {
+                    this.onInventoryChange(this.inventory);
                 }
             } catch (e) {
                 console.error('載入存檔失敗', e);
