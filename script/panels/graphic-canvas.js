@@ -164,11 +164,7 @@ class GraphicCanvas extends Component {
         const frame = frameList[0];
         const targetColor = frame[width * startY + startX];
         const fillColor = currentColorIndex;
-        
-        // 如果目標顏色等於選取顏色，則消除為0（與畫筆行為一致）
-        // 否則填充為選取顏色
-        const newColor = (targetColor === fillColor) ? 0 : fillColor;
-        
+        if (targetColor === fillColor) return;
         const visited = new Array(width * height).fill(false);
         const queue = [];
         queue.push({ x: startX, y: startY });
@@ -178,7 +174,7 @@ class GraphicCanvas extends Component {
             const { x, y } = queue.shift();
             const idx = width * y + x;
             if (newFrame[idx] === targetColor) {
-                newFrame[idx] = newColor;
+                newFrame[idx] = fillColor;
                 // 四方向擴展
                 [
                     { dx: 1, dy: 0 },
