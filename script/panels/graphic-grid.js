@@ -282,57 +282,45 @@ class GraphicGrid extends Component {
         }
         
         context.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // 背景始終保持透明，不繪製任何背景色
-        
-        // 繪製每個格子
-        let cellSize = 64;
+
+        // 使用容器寬度計算每格顯示大小（uniform tiles）以保證顯示一致
+        let containerWidth = this.node ? Math.floor(this.node.getBoundingClientRect().width) : canvas.width;
+        let displayCell = Math.max(1, Math.floor(containerWidth / width));
+
+        // 將 canvas 大小設為格子乘上列數，並同步 CSS 尺寸
+        let targetCanvasWidth = displayCell * width;
+        let targetCanvasHeight = displayCell * height;
+        if (canvas.width !== targetCanvasWidth || canvas.height !== targetCanvasHeight) {
+            canvas.width = targetCanvasWidth;
+            canvas.height = targetCanvasHeight;
+            canvas.style.width = targetCanvasWidth + 'px';
+            canvas.style.height = targetCanvasHeight + 'px';
+            // 重取 context（有些瀏覽器會在改變大小後需要重置 context state）
+            context = canvas.getContext('2d');
+        }
+
         for (let i = 0; i < filteredList.length; i++) {
             let x = i % width;
             let y = Math.floor(i / width);
             let graphic = filteredList[i];
-            let cellWidth = graphic.width;
-            let cellHeight = graphic.height;
-            if (graphic.type === 'picture' || graphic.type === 'face') {
-                let minSize = Math.max(cellSize, Math.max(graphic.width, graphic.height));
-                let scale = minSize / Math.max(graphic.width, graphic.height);
-                cellWidth = Math.round(graphic.width * scale);
-                cellHeight = Math.round(graphic.height * scale);
-            }
-            // 計算格子位置
-            let offsetX = 0;
-            for (let j = 0; j < x; j++) {
-                let prevGraphic = filteredList[y * width + j];
-                if (prevGraphic) {
-                    let prevCellWidth = prevGraphic.width;
-                    if (prevGraphic.type === 'picture' || prevGraphic.type === 'face') {
-                        let prevMinSize = Math.max(cellSize, Math.max(prevGraphic.width, prevGraphic.height));
-                        let prevScale = prevMinSize / Math.max(prevGraphic.width, prevGraphic.height);
-                        prevCellWidth = Math.round(prevGraphic.width * prevScale);
-                    }
-                    offsetX += prevCellWidth;
-                }
-            }
-            let offsetY = 0;
-            for (let j = 0; j < y; j++) {
-                let prevGraphic = filteredList[j * width + x];
-                if (prevGraphic) {
-                    let prevCellHeight = prevGraphic.height;
-                    if (prevGraphic.type === 'picture' || prevGraphic.type === 'face') {
-                        let prevMinSize = Math.max(cellSize, Math.max(prevGraphic.width, prevGraphic.height));
-                        let prevScale = prevMinSize / Math.max(prevGraphic.height, prevGraphic.width);
-                        prevCellHeight = Math.round(prevGraphic.height * prevScale);
-                    }
-                    offsetY += prevCellHeight;
-                }
-            }
+
+            // 計算繪製目標矩形（每格為 displayCell x displayCell）
+            let destX = x * displayCell;
+            let destY = y * displayCell;
+            let destW = displayCell;
+            let destH = displayCell;
+
             // --- 使用快取 ---
             let frameList = this.graphicFrameCache[graphic.name]
             if (frameList && frameList.length > 0) {
                 let frameIdx = (isAnimated && frameList.length > 1) ? (this.frameIndex % frameList.length) : 0
                 let frameCanvas = frameList[frameIdx]
                 context.imageSmoothingEnabled = false
-                context.drawImage(frameCanvas, 0, 0, graphic.width, graphic.height, offsetX, offsetY, cellWidth, cellHeight)
+                if (context.mozImageSmoothingEnabled !== undefined) context.mozImageSmoothingEnabled = false;
+                if (context.webkitImageSmoothingEnabled !== undefined) context.webkitImageSmoothingEnabled = false;
+
+                // 直接將快取 canvas 繪製到格子大小（nearest-neighbor）
+                context.drawImage(frameCanvas, 0, 0, frameCanvas.width, frameCanvas.height, destX, destY, destW, destH)
             }
         }
         
@@ -491,9 +479,9 @@ class GraphicGrid extends Component {
                     let cellHeight = graphic.height;
                     if (graphic.type === 'picture' || graphic.type === 'face') {
                         let minSize = Math.max(cellSize, Math.max(graphic.width, graphic.height));
-                        let scale = minSize / Math.max(graphic.width, graphic.height);
-                        cellWidth = Math.round(graphic.width * scale);
-                        cellHeight = Math.round(graphic.height * scale);
+                        let scale = Math.max(1, Math.ceil(minSize / Math.max(graphic.width, graphic.height)));
+                        cellWidth = graphic.width * scale;
+                        cellHeight = graphic.height * scale;
                     }
                     rowHeight = Math.max(rowHeight, cellHeight);
                 }
@@ -511,8 +499,8 @@ class GraphicGrid extends Component {
                     let cellWidth = graphic.width;
                     if (graphic.type === 'picture' || graphic.type === 'face') {
                         let minSize = Math.max(cellSize, Math.max(graphic.width, graphic.height));
-                        let scale = minSize / Math.max(graphic.width, graphic.height);
-                        cellWidth = Math.round(graphic.width * scale);
+                        let scale = Math.max(1, Math.ceil(minSize / Math.max(graphic.width, graphic.height)));
+                        cellWidth = graphic.width * scale;
                     }
                     colWidth = Math.max(colWidth, cellWidth);
                 }
@@ -534,9 +522,9 @@ class GraphicGrid extends Component {
                 let cellHeight = selectedGraphic.height;
                 if (selectedGraphic.type === 'picture' || selectedGraphic.type === 'face') {
                     let minSize = Math.max(cellSize, Math.max(selectedGraphic.width, selectedGraphic.height));
-                    let scale = minSize / Math.max(selectedGraphic.width, selectedGraphic.height);
-                    cellWidth = Math.round(selectedGraphic.width * scale);
-                    cellHeight = Math.round(selectedGraphic.height * scale);
+                    let scale = Math.max(1, Math.ceil(minSize / Math.max(selectedGraphic.width, selectedGraphic.height)));
+                    cellWidth = selectedGraphic.width * scale;
+                    cellHeight = selectedGraphic.height * scale;
                 }
                 
                 // 計算選中格子在 canvas 中的實際位置
@@ -547,8 +535,8 @@ class GraphicGrid extends Component {
                         let prevCellWidth = prevGraphic.width;
                         if (prevGraphic.type === 'picture' || prevGraphic.type === 'face') {
                             let prevMinSize = Math.max(cellSize, Math.max(prevGraphic.width, prevGraphic.height));
-                            let prevScale = prevMinSize / Math.max(prevGraphic.width, prevGraphic.height);
-                            prevCellWidth = Math.round(prevGraphic.width * prevScale);
+                            let prevScale = Math.max(1, Math.ceil(prevMinSize / Math.max(prevGraphic.width, prevGraphic.height)));
+                            prevCellWidth = prevGraphic.width * prevScale;
                         }
                         offsetX += prevCellWidth;
                     }
@@ -561,8 +549,8 @@ class GraphicGrid extends Component {
                         let prevCellHeight = prevGraphic.height;
                         if (prevGraphic.type === 'picture' || prevGraphic.type === 'face') {
                             let prevMinSize = Math.max(cellSize, Math.max(prevGraphic.width, prevGraphic.height));
-                            let prevScale = prevMinSize / Math.max(prevGraphic.width, prevGraphic.height);
-                            prevCellHeight = Math.round(prevGraphic.height * prevScale);
+                            let prevScale = Math.max(1, Math.ceil(prevMinSize / Math.max(prevGraphic.width, prevGraphic.height)));
+                            prevCellHeight = prevGraphic.height * prevScale;
                         }
                         offsetY += prevCellHeight;
                     }
@@ -597,8 +585,9 @@ class GraphicGrid extends Component {
             tabindex: 0
         }, [
             canvas({
-                width: canvasWidth,
-                height: canvasHeight,
+                width: (this.canvas ? this.canvas.width : canvasWidth),
+                height: (this.canvas ? this.canvas.height : canvasHeight),
+                style: { width: (this.canvas ? this.canvas.width : canvasWidth) + 'px', height: (this.canvas ? this.canvas.height : canvasHeight) + 'px' },
                 ref: node => { this.canvas = node }
             }),
             gridLines,

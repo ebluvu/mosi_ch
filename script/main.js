@@ -79,6 +79,10 @@ class Main extends Component {
 
         this.openScriptTab = (type) => {
             this.setCurrentTab('script')
+            // 如果要切換到 graphic，記住目前的非-graphic script 類型以便還原
+            if (type === 'graphic' && this.state.scriptTabType !== 'graphic') {
+                this._lastNonGraphicScriptTabType = this.state.scriptTabType
+            }
             this.setState({ scriptTabType: type })
         }
 
@@ -804,14 +808,14 @@ class Main extends Component {
                     // 更新目前的插圖索引與類型
                     const g = graphicList && graphicList[index] ? graphicList[index] : null
                     if (g) {
-                        this.setState({ currentGraphicIndex: index, graphicType: g.type })
-                        // picture：直接切換到腳本面板（on-show / on-hide）
+                        const newState = { currentGraphicIndex: index, graphicType: g.type }
                         if (g.type === 'picture') {
-                            this.openScriptTab('graphic')
-                        } else {
-                            // face：維持插圖編輯面板
-                            this.setCurrentTab('graphic')
+                            // picture：改變 script 面板顯示該 picture 的指令
+                            newState.scriptTabType = 'graphic'
                         }
+                        this.setState(newState)
+                        // 統一行為：選中任何 graphic（picture 或 face）皆切換到插圖編輯面板
+                        this.setCurrentTab('graphic')
                     } else {
                         // 安全回退
                         this.setState({ currentGraphicIndex: index })
@@ -831,9 +835,15 @@ class Main extends Component {
                 type: this.state.graphicType,
                 paletteList, // 傳遞 paletteList
                 onTypeChange: (newType) => {
-                    // 切換時自動選擇該類型第一個 graphic
-                    let idx = graphicList.findIndex(g => g.type === newType)
-                    this.setState({ graphicType: newType, currentGraphicIndex: idx >= 0 ? idx : 0 })
+                    // 只改變顯示的類型，不改變 currentGraphicIndex，讓 script 面板繼續顯示之前選中的 picture 指令
+                    const newState = { graphicType: newType }
+                    // 切換到 face 時關閉 script 面板
+                    if (newType === 'face') {
+                        let tabVisibility = { ...this.state.tabVisibility }
+                        tabVisibility.script = false
+                        newState.tabVisibility = tabVisibility
+                    }
+                    this.setState(newState)
                 }
             });
 
