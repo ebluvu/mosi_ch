@@ -91,7 +91,7 @@ class PlayPanel extends Component {
                 }),
                 sidePanelNode
             ]),
-            helpLink('play'),
+            helpLink('81a516dbc0ee4b56b8c348c7ed25eebb'),
             shareOverlay
         ])
     }

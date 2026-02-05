@@ -257,6 +257,7 @@ class InventoryPanel extends Component {
             ]),
             hr(),
             div({ className: 'inventory-content' }, content),
+            helpLink('21b642e52df08046ae60f61f0e9bf253'),
             varOverlay,
             importVarOverlay,
             errorOverlay

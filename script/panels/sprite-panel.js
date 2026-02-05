@@ -400,7 +400,7 @@ class SpritePanel extends Component {
                 gridToggleButton,
                 frameExtrasButton
             ]),
-            helpLink('sprites'),
+            helpLink('21c642e52df080f9903afca799b0e98a'),
             extrasOverlay,
             frameExtrasOverlay,
             exportOverlay,

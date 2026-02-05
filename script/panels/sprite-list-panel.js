@@ -220,6 +220,7 @@ class SpriteListPanel extends Component {
                 div({ className: 'spritelist' }, [
                     spriteButtonList
                 ]),
+                helpLink('326f1b8b3c3142deba4165d9505ad529'),
                 importOverlay,
                 customGroupOverlay,
                 configureGroupOverlay,

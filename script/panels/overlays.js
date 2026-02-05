@@ -608,7 +608,7 @@ class ScriptoriumOverlay extends Component {
 
         let moreInfoLink = currentSection ? null :
             div({ className: 'welcome-links' }, [
-                link({ href: 'https://github.com/zenzoa/mosi/wiki/scripts' }, '更多關於指令的資訊')
+                link({ href: 'https://ebluvu.notion.site/38be035e72f0497ab2069e5eabd3aa3e' }, '更多關於指令的資訊')
             ])
 
         return overlay({ closeOverlay, header: '插入指令' }, [

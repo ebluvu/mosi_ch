@@ -10,7 +10,7 @@ class WelcomePanel extends Component {
                 span({}, '新增了一些新指令，修復了一些錯誤')
             ]),
             div({ className: 'welcome-links' }, [
-                link({ href: 'https://github.com/zenzoa/mosi/wiki' }, '教學'),
+                link({ href: 'https://ebluvu.notion.site/a240a6595a274ff9a7e4111bdc1b911a' }, '教學'),
                 ' | ',
                 link({ href: 'https://github.com/zenzoa/mosi/issues/new' }, '需要修正?')
             ]),

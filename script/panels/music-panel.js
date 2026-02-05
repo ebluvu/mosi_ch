@@ -229,7 +229,7 @@ class MusicPanel extends Component {
                 icon('low-note'),
                 noteButtons.slice(0, 5)
             ]),
-            helpLink('music'),
+            helpLink('53fee72634f240ccb9d921711765e72a'),
             extrasOverlay,
             exportOverlay,
             removeOverlay,

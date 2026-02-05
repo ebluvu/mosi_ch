@@ -316,7 +316,7 @@ let link = ({ href, onclick }, children) => {
 
 let helpLink = (wikiPage, className) => {
     return div({ className: className || 'help-link' }, [
-        link({ href: 'https://github.com/zenzoa/mosi/wiki/' + wikiPage }, '更多資訊')
+        link({ href: 'https://ebluvu.notion.site/' + wikiPage }, '更多資訊')
     ])
 }
 

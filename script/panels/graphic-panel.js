@@ -520,7 +520,7 @@ class GraphicPanel extends Component {
                 gridToggleButton,
                 frameExtrasButton
             ]),
-            helpLink('graphics'),
+            helpLink('22a642e52df08000a4d9fd03ebff95d0'),
             extrasOverlay,
             frameExtrasOverlay,
             removeFrameOverlay,

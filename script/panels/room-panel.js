@@ -395,7 +395,7 @@ class RoomPanel extends Component {
                 dialogSpriteToggleButton,
                 addSpriteToPaletteButton
             ]),
-            helpLink('rooms'),
+            helpLink('9b81d73015fc40a688f07e8f52186320'),
             extrasOverlay,
             clearOverlay,
             importOverlay,
