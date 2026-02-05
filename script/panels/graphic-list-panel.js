@@ -137,7 +137,7 @@ class GraphicListPanel extends Component {
             type,
             colorList,
             paletteList, // 傳遞 paletteList
-            gridWidth: 2,
+            gridWidth: (type === 'face' ? 4 : 2),
             isAnimated: false,
             cacheAllFrames: false
         })

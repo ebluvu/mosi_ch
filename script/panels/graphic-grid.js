@@ -395,21 +395,12 @@ class GraphicGrid extends Component {
 
     render({
         className = '',
-        graphicList = [],
-        currentGraphicIndex = 0,
-        onSelect = () => {},
-        type = 'picture',
-        colorList = [],
-        gridWidth = 4,
-        gridHeight = 2,
-        paletteList = []
+        gridWidth = 4
     }, { graphicIndex, hoverIndex }) {
         let filteredList = this.getFilteredList();
         let total = filteredList.length;
         let width = Math.min(gridWidth, total > 0 ? total : 1);
         let height = total > 0 ? Math.ceil(total / gridWidth) : 1;
-        let tileWidth = 100 / width;
-        let tileHeight = 100 / height;
         // 計算選中格子在 filteredList 中的索引
         let selectedIdx = -1;
         if (graphicIndex >= 0 && graphicIndex < filteredList.length) {

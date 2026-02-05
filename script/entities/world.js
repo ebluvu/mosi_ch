@@ -441,6 +441,18 @@ let World = {
                     }
                 }
             })
+            // 清理 face 不應該包含的 picture 專屬欄位（避免匯出時出現多餘資料）
+            if (Array.isArray(world.graphicList)) {
+                world.graphicList.forEach(graphic => {
+                    if (graphic && graphic.type === 'face') {
+                        delete graphic.paletteName;
+                        delete graphic.musicName;
+                        delete graphic.scriptList;
+                        delete graphic.roomWidth;
+                        delete graphic.roomHeight;
+                    }
+                })
+            }
         }
         // 匯出時只保留新版 list 結構
         if (world.textboxSkinList) delete world.textboxSkinList;

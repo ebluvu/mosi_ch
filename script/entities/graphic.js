@@ -233,6 +233,14 @@ let Graphic = {
 
     export: (that, graphicIndex) => {
         let graphic = deepClone((that.state.graphicList || [])[graphicIndex])
+        // 如果是 face，移除 picture 專屬欄位，避免匯出時混入
+        if (graphic && graphic.type === 'face') {
+            delete graphic.paletteName;
+            delete graphic.musicName;
+            delete graphic.scriptList;
+            delete graphic.roomWidth;
+            delete graphic.roomHeight;
+        }
         let graphicData = JSON.stringify(graphic)
         return graphicData
     },
