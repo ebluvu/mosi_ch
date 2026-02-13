@@ -290,12 +290,18 @@ return {
             if (!node._mosiOnSelectWrapped) {
                 let _originOnSelect = node.onSelect;
                 node.onSelect = function(idx) {
+                    // 防護：避免 onSelect 被執行多次
+                    if (node._mosiChoiceHandled) return;
+                    node._mosiChoiceHandled = true;
+                    
                     if (_originOnSelect) _originOnSelect(idx);
                     window._mosiChoiceActive = false;
                     window._mosiForceFullRender = false;
+                    
+                    // 延遲移除整個分頁，確保 play-panel 不會重複顯示文字
                     setTimeout(() => {
                         removeChoiceEventListeners();
-                        // === 立即移除本頁所有 node（字串+選項合併分頁） ===
+                        // === 移除當前分頁的所有節點（包含文字 + choice） ===
                         if (Array.isArray(nodes) && typeof nodeIndex === 'number') {
                             let firstPageNode = nodeIndex;
                             while (firstPageNode > 0 && nodes[firstPageNode - 1].type !== 'page-break') {
@@ -511,6 +517,13 @@ return {
             // window.addEventListener('touchstart', window._mosiChoiceTouchStart, { passive: false });
             // window.addEventListener('touchmove', window._mosiChoiceTouchMove, { passive: false });
             // window.addEventListener('touchend', window._mosiChoiceTouchEnd, { passive: false });
+            
+            // === 激活選項交互 ===
+            if (!window._mosiChoiceActive) {
+                window._mosiChoiceActive = true;
+                window._mosiChoiceIndex = 0;
+            }
+            
             // 動畫沒跑完時，return -1
             // 修正：當 maxChars === -1 時（快速跳過），應該允許選項顯示
             if (typeof maxChars === 'number' && maxChars >= 0 && maxChars < allChars) {

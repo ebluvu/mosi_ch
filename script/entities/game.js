@@ -216,8 +216,22 @@ return class {
                 this._rafId = requestAnimationFrame(this.update);
                 return;
             }
-            let dt = timestamp - this.lastTimestamp
-            this.lastTimestamp = timestamp
+            // 如果 timestamp 無效，使用 performance.now()（確保時間源一致）
+            if (typeof timestamp !== 'number' || isNaN(timestamp)) {
+                timestamp = performance.now();
+            }
+            // 首次初始化時，設定基準時間
+            if (this.lastTimestamp === 0) {
+                this.lastTimestamp = timestamp;
+                var dt = 0; // 首幀不計時
+            } else {
+                var dt = timestamp - this.lastTimestamp;
+                // 防護：如果 dt 異常（負數或過大），重置為 0
+                if (isNaN(dt) || !isFinite(dt) || dt < 0) {
+                    dt = 0;
+                }
+                this.lastTimestamp = timestamp;
+            }
 
             // 更新搖動效果
             this.updateShake(timestamp)

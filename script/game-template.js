@@ -76,8 +76,8 @@ let Game = (() => {
 <script>
 window.onload = () => {
     let wrapper = document.getElementById('game-wrapper')
-    this.game = new Game(window.GAME_DATA, wrapper)
-    this.game.begin()
+    window.game = new Game(window.GAME_DATA, wrapper)
+    window.game.begin()
 }
 </script>
 
