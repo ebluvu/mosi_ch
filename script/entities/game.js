@@ -216,21 +216,23 @@ return class {
                 this._rafId = requestAnimationFrame(this.update);
                 return;
             }
-            // 如果 timestamp 無效，使用 performance.now()（確保時間源一致）
-            if (typeof timestamp !== 'number' || isNaN(timestamp)) {
+            const fromRaf = typeof timestamp === 'number' && !isNaN(timestamp);
+            if (!fromRaf) {
                 timestamp = performance.now();
             }
-            // 首次初始化時，設定基準時間
-            if (this.lastTimestamp === 0) {
-                this.lastTimestamp = timestamp;
-                var dt = 0; // 首幀不計時
-            } else {
-                var dt = timestamp - this.lastTimestamp;
-                // 防護：如果 dt 異常（負數或過大），重置為 0
-                if (isNaN(dt) || !isFinite(dt) || dt < 0) {
-                    dt = 0;
+            // 只在 RAF 驅動時更新時間，避免手動 update() 影響節奏
+            let dt = 0;
+            if (fromRaf) {
+                if (this.lastTimestamp === 0) {
+                    this.lastTimestamp = timestamp;
+                    dt = 0; // 首幀不計時
+                } else {
+                    dt = timestamp - this.lastTimestamp;
+                    if (isNaN(dt) || !isFinite(dt) || dt < 0) {
+                        dt = 0;
+                    }
+                    this.lastTimestamp = timestamp;
                 }
-                this.lastTimestamp = timestamp;
             }
 
             // 更新搖動效果
@@ -387,7 +389,9 @@ return class {
             }
 
             // see you next frame!
-            this._rafId = requestAnimationFrame(this.update)
+            if (fromRaf || !this._rafId) {
+                this._rafId = requestAnimationFrame(this.update)
+            }
         }
 
         this.updateAvatar = () => {
@@ -1025,7 +1029,6 @@ return class {
                     let color = colorList[colorIndex] || '#000'
                     this._isFading = true
                     this.fade(color, 400, 'out').then(() => {
-                        this._isFading = false
                         // 房間切換完成後，執行上一個房間的 on-exit，然後執行新房間的 on-enter
                         this._moveRoomsAfterFade(roomIndex, startOfGame, { 
                             fadeIn: { color, duration: 400 },
@@ -1107,7 +1110,12 @@ return class {
 
             // 如果有 fadeIn 參數，這裡淡入
             if (opts && opts.fadeIn && this.fade) {
-                this.fade(opts.fadeIn.color, opts.fadeIn.duration, 'in')
+                this._isFading = true
+                this.fade(opts.fadeIn.color, opts.fadeIn.duration, 'in').then(() => {
+                    this._isFading = false
+                })
+            } else {
+                this._isFading = false
             }
 
             // 執行上一個房間的 on-exit（房間已經切換，但執行舊房間的腳本）
@@ -1350,6 +1358,7 @@ return class {
         }
 
         this.keyDown = (e) => {
+            if (this._isFading) return;
             // 只有在非對話狀態下才鎖定玩家操作
             if (window._mosiLockInput && (!this.dialogNodes || this.dialogNodes.length === 0)) return;
             if (e.key.startsWith('Arrow') || ['w', 'a', 's', 'd'].includes(e.key)) e.preventDefault() // prevent arrow keys from scrolling page
@@ -1375,12 +1384,14 @@ return class {
         }
 
         this.keyUp = (e) => {
+            if (this._isFading) return;
             if (window._mosiLockInput && (!this.dialogNodes || this.dialogNodes.length === 0)) return;
             this.keyCodes = this.keyCodes.filter(keyCode => keyCode !== e.key)
             if (this.keyCodes.length === 0) this.keyActive = false
         }
 
         this.pointerStart = (e) => {
+            if (this._isFading) return;
             if (window._mosiLockInput && (!this.dialogNodes || this.dialogNodes.length === 0)) return;
             if (window._mosiChoiceActive) return;
             e.preventDefault()
@@ -1400,6 +1411,7 @@ return class {
         }
 
         this.pointerMove = (e) => {
+            if (this._isFading) return;
             if (window._mosiChoiceActive) return;
             if (this.pointerIsDown) {
                 e.preventDefault()
@@ -1412,6 +1424,7 @@ return class {
         }
 
         this.pointerEnd = (e) => {
+            if (this._isFading) return;
             if (window._mosiLockInput && (!this.dialogNodes || this.dialogNodes.length === 0)) return;
             if (window._mosiChoiceActive) return;
             if (this.pointerIsDown) {
@@ -1471,7 +1484,10 @@ return class {
         this._slideTicking = false;
         this.fade = (color, duration = 400, direction = 'out') => {
             return new Promise(resolve => {
-                if (this._fadeTicking) return;
+                if (this._fadeTicking) {
+                    resolve();
+                    return;
+                }
                 this._fadeTicking = true;
                 this.fadeOverlay.style.background = color
                 this.fadeOverlay.style.transition = ''
@@ -1780,7 +1796,10 @@ return class {
 
         // === 全域滑動動畫 API ===
         this.slideTransition = (fromRoomIndex, toRoomIndex, direction, callback, duration = 400) => {
-            if (this._slideTicking) return;
+            if (this._slideTicking) {
+                if (typeof callback === 'function') callback()
+                return;
+            }
             this._slideTicking = true;
             // direction 可選，若未指定則自動判斷
             let fromRoom = this.world.roomList[fromRoomIndex]

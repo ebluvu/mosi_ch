@@ -351,6 +351,19 @@ return {
                     // === 立即移除 choice 節點，直接推進 ===
                     if (Array.isArray(nodes) && typeof nodeIndex === 'number') {
                         nodes.splice(nodeIndex, 1);
+                        let nextPageNodeIndex = -1;
+                        for (let i = nodeIndex; i < nodes.length; i++) {
+                            if (nodes[i] && nodes[i].type === 'page-break') {
+                                nextPageNodeIndex = i;
+                                break;
+                            }
+                        }
+                        if (window.game) {
+                            if (nextPageNodeIndex < 0) {
+                                nextPageNodeIndex = nodeIndex;
+                            }
+                            window.game.nextPageNodeIndex = nextPageNodeIndex;
+                        }
                     }
                     if (window.game && typeof window.game.progressDialog === 'function') {
                         window.game.pageIsComplete = true;
