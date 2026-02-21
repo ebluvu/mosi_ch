@@ -89,7 +89,7 @@ class ScriptPanel extends Component {
                 eventButtons
             ]),
             scriptText,
-            row([ helpLink('2d0f66b4cc024b72a57e9cf4dc6e613a', 'fill'), fill(), scriptoriumButton ]),
+            row([ helpLink('scripts', 'fill'), fill(), scriptoriumButton ]),
             scriptoriumOverlay
         ])
     }

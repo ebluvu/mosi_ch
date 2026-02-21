@@ -297,7 +297,7 @@ class WorldPanel extends Component {
             div({ className: 'grid-container' }, [
                 worldGrid,
             ]),
-            helpLink('8ffdcf6f010348649a3693585aaa4b09'),
+            helpLink('world'),
             extrasOverlay,
             importOverlay,
             exportOverlay,
